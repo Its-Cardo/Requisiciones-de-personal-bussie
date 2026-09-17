@@ -61,6 +61,20 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     #cancelacion-container button { background-color: #b91c1c; }
     #cancelacion-container button:hover { background-color: #991b1b; }
     .link-toggle { background: none; border: none; color: #2563eb; text-decoration: underline; cursor: pointer; padding: 0; font-size: 14px; }
+
+    /* Vista de impresión: réplica visual del formato F-TH-028 */
+    #print-view { display: none; }
+    #print-view .print-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 14px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 6px; }
+    #print-view .print-footer { font-size: 9px; margin-top: 10px; display: flex; justify-content: space-between; border-top: 1px solid #000; padding-top: 6px; }
+    #print-view table { width: 100%; border-collapse: collapse; font-size: 9.5px; table-layout: fixed; }
+    #print-view td { border: 1px solid #000; padding: 3px 4px; vertical-align: top; word-wrap: break-word; }
+    #print-view p { margin: 0; }
+
+    @media print {
+      body * { visibility: hidden; }
+      #print-view, #print-view * { visibility: visible; }
+      #print-view { display: block; position: absolute; top: 0; left: 0; width: 100%; }
+    }
   </style>
   <script>
     // Conexión al proyecto de Supabase (URL y anon key son públicas y seguras de exponer en el navegador)
@@ -257,7 +271,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     </div>
 
     <button type="button" onclick="generarDocumento()">
-      📄 Generar y Descargar Requisición
+      🖨️ Generar e Imprimir Requisición (PDF)
     </button>
 
     <div id="resultado-generacion" style="margin-top:12px; font-size:14px;"></div>
@@ -474,34 +488,25 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         mensajeDiv.textContent = `✅ Requisición generada con el número ${registro.numero_consecutivo} (año ${registro.anio}).`;
       }
 
-      // 5. Nombre EXACTO de tu archivo de Word (¡Cuidado con los espacios!)
-      const nombrePlantilla = "COPIA_F-TH-028_REQUISICIÓN_DE_PERSONAL _V03.docx";
-      
-      const respuesta = await fetch(nombrePlantilla);
-      if (!respuesta.ok) throw new Error("No se pudo cargar la plantilla. Verifica el nombre exacto del archivo de Word.");
-      
-      const arrayBuffer = await respuesta.arrayBuffer();
-      const zip = new PizZip(arrayBuffer);
-      const doc = new window.docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
-
-      // 6. Inyectar datos al Word
-      doc.render(datos);
-
-      // 7. Generar el blob y descargar
-      const blob = doc.getZip().generate({
-        type: "blob",
-        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      });
-
-      // Nombre del archivo que se va a descargar (Ej: Requisicion_Analista.docx)
-      let nombreCargoArchivo = document.getElementById('nombre_cargo').value.replace(/\s+/g, '_') || 'Nuevo';
-      saveAs(blob, `Requisicion_${nombreCargoArchivo}.docx`);
+      // 5. Llenar la vista de impresión con los datos y lanzar la impresión (PDF vía "Guardar como PDF")
+      llenarVistaImpresion(datos);
+      window.print();
 
     } catch (error) {
       console.error(error);
       mensajeDiv.style.color = '#b91c1c';
       mensajeDiv.textContent = '';
       alert("Hubo un error: " + error.message);
+    }
+  }
+
+  // Copia cada valor de "datos" al span correspondiente (id="print_<clave>") en la vista de impresión
+  function llenarVistaImpresion(datos) {
+    for (const clave in datos) {
+      const span = document.getElementById('print_' + clave);
+      if (span) {
+        span.textContent = datos[clave];
+      }
     }
   }
 
@@ -522,6 +527,21 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     document.getElementById('fecha_solicitud').value = `${dia}/${mes}/${anio}`;
   }
 </script>
+
+
+<!-- Vista de impresión: réplica visual del formato F-TH-028, solo visible al imprimir -->
+<div id="print-view">
+  <div class="print-header">
+    <span>REQUISICIÓN DE PERSONAL</span>
+    <span>N° <span id="print_cont"></span></span>
+  </div>
+  <table><tr><td colspan="33"><p><strong>1. DATOS GENERALES</strong></p></td></tr><tr><td colspan="5"><p><strong>FECHA DE SOLICITUD</strong></p></td><td colspan="7"><p><strong>COMPAÑÍA</strong></p></td><td colspan="21"><p><strong>NOMBRE DEL CARGO</strong></p></td></tr><tr><td colspan="5"><p><span id="print_fecha_solicitud"></span></p></td><td colspan="7"><p><span id="print_compania"></span></p></td><td colspan="21"><p><span id="print_nombre_cargo"></span></p></td></tr><tr><td colspan="6"><p><strong>ÁREA</strong></p></td><td colspan="10"><p><strong>DIRECCIÓN</strong></p></td><td colspan="7"><p><strong>CENTRO DE COSTO</strong></p></td><td colspan="10"><p><strong>CIUDAD</strong></p></td></tr><tr><td colspan="6"><p><span id="print_area"></span></p></td><td colspan="10"><p><span id="print_direccion"></span></p></td><td colspan="7"><p><span id="print_centro_costo"></span></p></td><td colspan="10"><p><span id="print_ciudad"></span></p></td></tr><tr><td colspan="6"><p><strong>2. TIPO DE REQUISICIÓN</strong></p></td><td colspan="10"><p><strong>3. MOTIVO DE LA VACANTE</strong></p></td><td colspan="17"><p><strong>4. TIPO DE CONTRATO</strong></p></td></tr><tr><td colspan="6"><p><span id="print_tipo_requisicion"></span></p></td><td colspan="10"><p><span id="print_motivo_vacante"></span></p></td><td colspan="17"><p><span id="print_tipo_contrato"></span>                Duración <span id="print_meses"></span> meses</p></td></tr><tr><td colspan="4"><p><strong>HORARIO DE TRABAJO</strong></p></td><td colspan="29"><p><span id="print_horario"></span></p></td></tr><tr><td colspan="4"><p><strong> REEMPLAZO DE</strong></p></td><td colspan="11"><p><span id="print_reemplazo"></span></p></td><td colspan="8"><p><strong>PRESUPUESTADO</strong></p></td><td colspan="4"><p>SI   <span id="print_xsi"></span></p></td><td colspan="3"><p>NO</p></td><td colspan="2"></td><td><p><span id="print_xno"></span></p></td></tr><tr><td colspan="33"><p><strong>5. JUSTIFICACIÓN (Describa de manera detallada el motivo de la solicitud)</strong></p></td></tr><tr><td colspan="33"><p><span id="print_justificacion"></span></p></td></tr><tr><td colspan="33"><p><strong>6. REQUERIMIENTOS (Describa los conocimientos técnicos que requieren el perfil del cargo)</strong></p></td></tr><tr><td colspan="33"><p><span id="print_requerimientos"></span></p></td></tr><tr><td colspan="33"><p><strong>A7. ELEMENTOS DE TRABAJO </strong></p></td></tr><tr><td><p>Computador  Escritorio</p></td><td colspan="2"><p><span id="print_a"></span></p></td><td colspan="2"><p>Computar Portátil</p></td><td colspan="2"><p><span id="print_b"></span></p></td><td colspan="2"><p>Línea Telefónica</p></td><td><p><span id="print_c"></span></p></td><td colspan="3"><p>Puesto de</p><p>     Trabajo</p></td><td><p><span id="print_d"></span></p></td><td colspan="3"><p>Usuario</p><p>Intranet</p></td><td colspan="2"><p><span id="print_f"></span></p></td><td colspan="3"><p>Usuario Virtual </p></td><td><p><span id="print_g"></span></p></td><td colspan="2"><p>Tarjeta de Crédito</p></td><td colspan="3"><p><span id="print_h"></span></p></td><td colspan="3"><p>Legavi </p></td><td colspan="2"><p><span id="print_i"></span></p></td></tr><tr><td><p>Celular con Línea Telefónica</p></td><td><p><span id="print_j"></span></p></td><td colspan="3"><p> Línea Fija</p><p> con Extensión</p><p>              </p></td><td colspan="2"><p><span id="print_k"></span></p></td><td colspan="2"><p> Tablet </p></td><td colspan="2"><p><span id="print_l"></span></p></td><td colspan="3"><p>Correo</p><p>Electrónico</p></td><td colspan="3"><p><span id="print_m"></span></p></td><td colspan="3"><p>Usuario Infor LX </p></td><td><p><span id="print_n"></span></p></td><td colspan="2"><p>Fondo Fijo</p></td><td><p><span id="print_o"></span></p></td><td colspan="2"><p>Dotación </p></td><td colspan="3"><p><span id="print_p"></span></p></td><td colspan="4"><p>       Nexus <span id="print_q"></span></p><p>  Otro <span id="print_otro"></span></p></td></tr><tr><td colspan="33"><p><strong>8. APROBACIÓN: REEMPLAZO / CAMBIO NOMBRE DEL CARGO / TRASLADO / ENCARGO TEMPORAL/CUOTA SENA</strong></p></td></tr><tr><td colspan="8"><p><strong>JEFE INMEDIATO</strong></p></td><td colspan="10"><p><strong>DIRECTOR DE ÁREA</strong></p></td><td colspan="15"><p><strong>GERENTE DE TALENTO HUMANO LATAM</strong></p></td></tr><tr><td colspan="8"><p>Nombre </p></td><td colspan="10"><p>Nombre </p></td><td colspan="15"><p>Nombre </p></td></tr><tr><td colspan="8"><p>Firma y fecha</p></td><td colspan="10"><p>Firma y fecha</p></td><td colspan="15"><p>Firma y fecha</p></td></tr><tr><td colspan="33"><p><strong>9. APROBACIÓN: CARGO NUEVO / POSICIÓN ADICIONAL / ASCENSO / INCREMENTO SALARIAL/ CAMBIO DE CONTRATO/EXTENSIÓN DE CONTRATO </strong></p></td></tr><tr><td colspan="5"><p><strong>JEFE INMEDIATO</strong></p></td><td colspan="7"><p><strong>DIRECTOR DE ÁREA</strong></p></td><td colspan="11"><p><strong>GERENTE DE TALENTO HUMANO LATAM </strong></p></td><td colspan="10"><p><strong>DIRECTOR GENERAL</strong></p></td></tr><tr><td colspan="5"><p>Nombre </p></td><td colspan="7"><p>Nombre </p></td><td colspan="11"><p>Nombre </p></td><td colspan="10"><p>Nombre </p></td></tr><tr><td colspan="5"><p>Firma y fecha</p></td><td colspan="7"><p>Firma y fecha</p></td><td colspan="11"><p>Firma y fecha</p></td><td colspan="10"><p>Firma y fecha</p></td></tr></table><table><tr><td colspan="5"><p><strong>ÁREA EXCLUSIVA PARA USO DE TALENTO HUMANO</strong></p></td></tr><tr><td colspan="5"><table><tr><td colspan="5"><p><strong>10. ASCENSO O TRASLADO</strong></p></td></tr><tr><td colspan="5"><p><strong>UNIDAD ORGANIZATIVA</strong></p></td></tr><tr><td colspan="2"><p><strong>DE</strong></p></td><td colspan="3"><p><strong>A</strong></p></td></tr><tr><td colspan="2"></td><td colspan="3"></td></tr><tr><td colspan="5"><p><strong>11.  SALARIO</strong></p></td></tr><tr><td><p><strong>ACTUAL</strong></p></td><td colspan="2"><p><strong>PROPUESTO</strong></p></td><td><p><strong>APROBADO</strong></p></td><td><p><strong>A PARTIR DE</strong></p></td></tr><tr><td></td><td colspan="2"></td><td></td><td><p>Haga clic aquí para escribir una fecha.</p></td></tr></table></td></tr><tr><td><p><strong>NOMBRE DEL CANDIDATO</strong></p></td><td><p><strong>C.C. #</strong></p></td><td colspan="2"><p><strong>FECHA INGRESO</strong></p></td><td><p><strong>FECHA TERMINACIÓN     </strong></p></td></tr><tr><td></td><td></td><td colspan="2"></td><td></td></tr><tr><td colspan="2"><p><strong>12.  CONDICIONES CONTRACTUALES</strong></p></td><td colspan="3"><p><strong>OTRAS CONDICIONES DE CONTRATACIÓN</strong></p></td></tr><tr><td><p>Salario Básico</p></td><td></td><td colspan="3" rowspan="4"></td></tr><tr><td><p>Salario Integral</p></td><td></td></tr><tr><td><p>Comisiones</p></td><td></td></tr><tr><td><p>Medios de Transporte </p></td><td></td></tr><tr><td><p><strong>TOTAL</strong></p></td><td></td><td colspan="3"><p><strong>EMPRESA TEMPORAL</strong></p></td></tr><tr><td><p><strong>RESPONSABLE PROCESOS</strong></p><p><strong> DE SELECCIÓN</strong></p></td><td colspan="2"><p><strong>JEFE </strong></p><p><strong>DE TALENTO HUMANO</strong></p></td><td colspan="2"><p><strong>COORDINADOR DE ADMINISTRACIÓN DE PERSONAL </strong></p></td></tr><tr><td><p>Nombre </p></td><td colspan="2"><p>Nombre </p></td><td colspan="2"><p>Nombre </p></td></tr><tr><td><p>Firma y fecha</p></td><td colspan="2"><p>Firma y fecha</p></td><td colspan="2"><p>Firma y fecha</p></td></tr><tr><td colspan="5"><p><strong>OBSERVACIONES</strong></p></td></tr><tr><td colspan="5"></td></tr></table><p><strong>Nota:</strong> Para todos los cargos nuevos se debe contar con guía de cargo, para los cargos vigentes se debe verificar si existe alguna adición o cambio en la guía de cargo existente.</p>
+  <div class="print-footer">
+    <span>VERSIÓN: 03</span>
+    <span>CÓDIGO: F-TH-028</span>
+    <span>FECHA DE APLICACIÓN: 01-04-2025</span>
+  </div>
+</div>
 
 </body>
 </html>
