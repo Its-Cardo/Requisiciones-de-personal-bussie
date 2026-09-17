@@ -68,6 +68,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhra3h4b2drZHpuYmNic3dwcWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwOTc2NzAsImV4cCI6MjEwNDY3MzY3MH0.nNgewAI4SeVuDGKkX95CAtNjbS5wXRbJOjpe5rXiGIQ";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let usuarioActual = null; // Guarda { id, nombre_completo } una vez inicia sesión
+    let ultimaRequisicionGenerada = null; // Guarda { numero_consecutivo, anio } de la última requisición generada en esta sesión
   </script>
 </head>
 <body>
@@ -258,6 +259,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <button type="button" onclick="generarDocumento()">
       📄 Generar y Descargar Requisición
     </button>
+
+    <div id="resultado-generacion" style="margin-top:12px; font-size:14px;"></div>
+
+    <div style="margin-top: 10px;">
+      <button type="button" class="link-toggle" onclick="nuevaRequisicion()">↺ Empezar una Requisición Nueva (limpiar formulario)</button>
+    </div>
   </form>
 
   <!-- Sección de cancelación de una requisición existente -->
@@ -267,15 +274,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   <div id="cancelacion-container" style="display:none;">
     <div class="section-title" style="margin-top:0;">Cancelar una Requisición</div>
-    <div class="grid-3">
-      <div class="form-group">
-        <label>Número de Requisición:</label>
-        <input type="text" id="cancel_numero" oninput="soloNumeros(this)">
-      </div>
-      <div class="form-group">
-        <label>Año:</label>
-        <input type="text" id="cancel_anio" oninput="soloNumeros(this)">
-      </div>
+    <div class="form-group">
+      <label>Número de Requisición:</label>
+      <input type="text" id="cancel_numero" oninput="soloNumeros(this)">
     </div>
     <div class="form-group">
       <label>Motivo de la Cancelación:</label>
@@ -353,17 +354,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     div.style.display = div.style.display === 'none' ? 'block' : 'none';
   }
 
-  // Cancela una requisición existente, verificando número + año + nombre del usuario logueado
+  // Cancela una requisición existente, verificando número + año (actual) + nombre del usuario logueado
   async function cancelarRequisicion() {
     const numero = parseInt(document.getElementById('cancel_numero').value, 10);
-    const anio = parseInt(document.getElementById('cancel_anio').value, 10);
+    const anio = new Date().getFullYear(); // Se toma el año actual para evitar cancelar por error una de otro año
     const motivo = document.getElementById('cancel_motivo').value;
     const mensajeDiv = document.getElementById('cancelacion-mensaje');
     mensajeDiv.textContent = '';
 
-    if (!numero || !anio) {
+    if (!numero) {
       mensajeDiv.style.color = '#b91c1c';
-      mensajeDiv.textContent = 'Debes indicar el número de requisición y el año.';
+      mensajeDiv.textContent = 'Debes indicar el número de requisición.';
       return;
     }
 
@@ -385,6 +386,30 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
 
   async function generarDocumento() {
+    const mensajeDiv = document.getElementById('resultado-generacion');
+    mensajeDiv.textContent = '';
+
+    // 0. Validar que los campos obligatorios del formulario estén completos
+    const formulario = document.getElementById('reqForm');
+    if (!formulario.checkValidity()) {
+      formulario.reportValidity();
+      alert('Te faltan campos obligatorios por llenar en el formulario. Por favor complétalos antes de generar la requisición.');
+      return;
+    }
+
+    // 0.1 Si ya se generó una requisición en esta sesión, preguntar si es una copia
+    let esCopia = false;
+    if (ultimaRequisicionGenerada) {
+      const quiereCopia = confirm(
+        `Ya generaste la requisición número ${ultimaRequisicionGenerada.numero_consecutivo} (año ${ultimaRequisicionGenerada.anio}) en esta sesión.\n\n¿Deseas sacar una copia de esa misma requisición?\n\nAceptar = Sí, sacar copia (no se crea un número nuevo)\nCancelar = No, quiero volver al formulario`
+      );
+      if (quiereCopia) {
+        esCopia = true;
+      } else {
+        return; // Cancela la operación y se queda en el formulario, sin generar nada
+      }
+    }
+
     // 1. Obtener si es presupuestado SI o NO
     const esPresupuestado = document.querySelector('input[name="presupuestado"]:checked').value;
 
@@ -426,19 +451,28 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     };
 
     try {
-      // 4.1 Registrar la requisición en Supabase para obtener el número consecutivo ({cont})
-      const { data: registro, error: errorRpc } = await supabaseClient.rpc('crear_requisicion', {
-        p_tipo_requisicion: datos.tipo_requisicion,
-        p_nombre_solicitante: usuarioActual.nombre_completo,
-        p_datos_formulario: datos
-      });
+      if (esCopia) {
+        // No se llama a Supabase: se reutiliza el mismo número, sin aumentar el consecutivo
+        datos.cont = String(ultimaRequisicionGenerada.numero_consecutivo);
+        mensajeDiv.style.color = '#2563eb';
+        mensajeDiv.textContent = `📄 Generando copia de la requisición número ${ultimaRequisicionGenerada.numero_consecutivo} (año ${ultimaRequisicionGenerada.anio}). El consecutivo no cambió.`;
+      } else {
+        // 4.1 Registrar la requisición en Supabase para obtener el número consecutivo ({cont})
+        const { data: registro, error: errorRpc } = await supabaseClient.rpc('crear_requisicion', {
+          p_tipo_requisicion: datos.tipo_requisicion,
+          p_nombre_solicitante: usuarioActual.nombre_completo,
+          p_datos_formulario: datos
+        });
 
-      if (errorRpc) {
-        throw new Error("No se pudo registrar la requisición en el sistema: " + errorRpc.message);
+        if (errorRpc) {
+          throw new Error("No se pudo registrar la requisición en el sistema: " + errorRpc.message);
+        }
+
+        datos.cont = String(registro.numero_consecutivo);
+        ultimaRequisicionGenerada = { numero_consecutivo: registro.numero_consecutivo, anio: registro.anio };
+        mensajeDiv.style.color = '#15803d';
+        mensajeDiv.textContent = `✅ Requisición generada con el número ${registro.numero_consecutivo} (año ${registro.anio}).`;
       }
-
-      datos.cont = String(registro.numero_consecutivo);
-      alert(`Número de requisición asignado: ${registro.numero_consecutivo} (Año ${registro.anio})`);
 
       // 5. Nombre EXACTO de tu archivo de Word (¡Cuidado con los espacios!)
       const nombrePlantilla = "COPIA_F-TH-028_REQUISICIÓN_DE_PERSONAL _V03.docx";
@@ -465,8 +499,27 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
     } catch (error) {
       console.error(error);
+      mensajeDiv.style.color = '#b91c1c';
+      mensajeDiv.textContent = '';
       alert("Hubo un error: " + error.message);
     }
+  }
+
+  // Limpia el formulario y olvida la última requisición generada, para empezar una completamente nueva
+  function nuevaRequisicion() {
+    const formulario = document.getElementById('reqForm');
+    formulario.reset();
+    document.getElementById('nombre_solicitante').value = usuarioActual ? usuarioActual.nombre_completo : '';
+    document.getElementById('grupo_duracion').style.display = 'none';
+    document.getElementById('resultado-generacion').textContent = '';
+    ultimaRequisicionGenerada = null;
+
+    // Volver a poner la fecha de solicitud de hoy (se borra con el reset del formulario)
+    const hoy = new Date();
+    const dia = String(hoy.getDate()).padStart(2, '0');
+    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+    const anio = hoy.getFullYear();
+    document.getElementById('fecha_solicitud').value = `${dia}/${mes}/${anio}`;
   }
 </script>
 
