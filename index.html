@@ -8832,64 +8832,135 @@ var supabase = function(e) {
 
   <style>
     * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #e2e8f0; padding: 20px; color: #334155; margin: 0; }
-    .container { max-width: 900px; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: 0 auto; }
-    h1 { color: #0f172a; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; margin-top: 0; }
-    h2 { color: #0f172a; margin-top: 0; }
-    .section-title { background-color: #3b82f6; color: white; padding: 8px 15px; border-radius: 5px; margin-top: 30px; margin-bottom: 15px; font-weight: bold; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background-color: #EEF1F5;
+      padding: 20px;
+      color: #334155;
+      margin: 0;
+    }
+    h1, h2, .titulo-serif { font-family: Georgia, 'Cambria', 'Times New Roman', serif; }
+    h1 { color: #10243E; }
+    h2 { color: #10243E; margin-top: 0; }
+    .contenedor { max-width: 960px; background: #FFFFFF; padding: 30px; border-radius: 10px; box-shadow: 0 1px 3px rgba(16,36,62,0.08); margin: 0 auto; }
+    .section-title {
+      font-family: Georgia, 'Cambria', 'Times New Roman', serif;
+      color: #10243E;
+      border-bottom: 2px solid #DCE3EA;
+      padding-bottom: 10px;
+      margin-top: 30px;
+      margin-bottom: 18px;
+      font-size: 20px;
+      font-weight: 600;
+    }
     .hidden { display: none !important; }
 
     /* Login */
     #vistaLogin { max-width: 420px; margin: 60px auto; }
     .form-group { margin-bottom: 15px; }
-    label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+    label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 14px; color: #475569; }
     input[type="text"], input[type="email"], input[type="password"], select {
-      width: 100%; padding: 8px; border: 1px solid #94a3b8; border-radius: 4px; box-sizing: border-box;
+      width: 100%; padding: 9px 10px; border: 1px solid #CBD5E1; border-radius: 6px; box-sizing: border-box; font-size: 14px;
     }
-    button { background-color: #16a34a; color: white; border: none; padding: 12px 18px; font-size: 15px; font-weight: bold; border-radius: 6px; cursor: pointer; }
-    button:hover { background-color: #15803d; }
-    button.secundario { background-color: #64748b; }
-    button.secundario:hover { background-color: #475569; }
-    button.peligro { background-color: #dc2626; padding: 4px 10px; font-size: 12px; }
-    button.peligro:hover { background-color: #b91c1c; }
-    .error-msg { color: #dc2626; font-size: 14px; margin-top: 10px; min-height: 18px; }
-    .ok-msg { color: #16a34a; font-size: 14px; margin-top: 10px; min-height: 18px; }
+    input:focus, select:focus { outline: none; border-color: #1CA7A0; box-shadow: 0 0 0 3px rgba(28,167,160,0.15); }
+
+    button {
+      background-color: #10243E; color: white; border: none; padding: 11px 18px;
+      font-size: 14px; font-weight: 600; border-radius: 6px; cursor: pointer;
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+    button:hover { background-color: #16324F; }
+    button.acento { background-color: #1CA7A0; }
+    button.acento:hover { background-color: #178F89; }
+    button.secundario { background-color: #EEF1F5; color: #334155; border: 1px solid #DCE3EA; }
+    button.secundario:hover { background-color: #E2E8F0; }
+    button.peligro { background-color: #B3402F; padding: 4px 10px; font-size: 12px; }
+    button.peligro:hover { background-color: #93321F; }
+    button.enlace { background: none; color: #1CA7A0; padding: 0; font-weight: 600; }
+    button.enlace:hover { background: none; color: #178F89; text-decoration: underline; }
+    button:disabled { opacity: 0.6; cursor: default; }
+
+    .error-msg { color: #B3402F; font-size: 14px; margin-top: 10px; min-height: 18px; }
+    .ok-msg { color: #178F89; font-size: 14px; margin-top: 10px; min-height: 18px; }
 
     /* Barra superior */
-    .barra-superior { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .barra-superior .usuario-info { font-size: 14px; color: #64748b; }
-    .barra-superior .usuario-info strong { color: #0f172a; }
+    .barra-superior { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 18px; border-bottom: 1px solid #E2E8F0; }
+    .barra-superior h1 { border: none; padding: 0; margin: 0; font-size: 22px; }
+    .esquina-usuario { display: flex; align-items: center; gap: 10px; }
+    .avatar-inicial {
+      width: 34px; height: 34px; border-radius: 50%; background: #1CA7A0; color: #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+      font-family: 'Segoe UI', Arial, sans-serif; flex-shrink: 0;
+    }
+    .esquina-usuario .datos { line-height: 1.3; }
+    .esquina-usuario .datos .nombre { font-weight: 600; color: #10243E; font-size: 13px; }
+    .esquina-usuario .datos .rol { color: #64748B; font-size: 12px; }
+    .separador-vertical { width: 1px; height: 24px; background: #E2E8F0; margin: 0 2px; }
+
+    .volver { background: none; color: #1CA7A0; padding: 0; font-weight: 600; margin-bottom: 18px; }
+    .volver:hover { background: none; color: #178F89; text-decoration: underline; }
+
+    /* Inicio: botonera central */
+    .inicio-botonera { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 50px 20px; }
+    .inicio-boton {
+      width: 100%; max-width: 380px; padding: 22px 26px; border-radius: 10px; border: 1px solid #DCE3EA;
+      background: #F8FAFC; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 16px;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .inicio-boton:hover { border-color: #1CA7A0; box-shadow: 0 2px 10px rgba(28,167,160,0.15); }
+    .inicio-boton .icono {
+      width: 44px; height: 44px; border-radius: 8px; background: #10243E; color: #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+    }
+    .inicio-boton.acento .icono { background: #1CA7A0; }
+    .inicio-boton .texto .titulo { font-weight: 700; color: #10243E; font-size: 16px; }
+    .inicio-boton .texto .desc { color: #64748B; font-size: 13px; margin-top: 3px; }
+    .inicio-boton.solo-developer { border-style: dashed; }
 
     /* Áreas */
     .grid-areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-top: 15px; }
-    .tarjeta-area { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; }
-    .tarjeta-area:hover { border-color: #3b82f6; box-shadow: 0 2px 8px rgba(59,130,246,0.15); }
-    .tarjeta-area h3 { margin: 0 0 5px 0; color: #0f172a; }
-    .tarjeta-area p { margin: 0; font-size: 13px; color: #64748b; }
-
-    .volver { background: none; color: #3b82f6; padding: 0; font-weight: bold; margin-bottom: 15px; }
-    .volver:hover { background: none; color: #1d4ed8; text-decoration: underline; }
+    .tarjeta-area { background: #F8FAFC; border: 1px solid #DCE3EA; border-radius: 10px; padding: 20px; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; }
+    .tarjeta-area:hover { border-color: #1CA7A0; box-shadow: 0 2px 8px rgba(28,167,160,0.15); }
+    .tarjeta-area h3 { margin: 0 0 5px 0; color: #10243E; font-family: Georgia, serif; }
+    .tarjeta-area p { margin: 0; font-size: 13px; color: #64748B; }
 
     /* Personas dentro de un área */
-    .persona-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px 18px; margin-bottom: 12px; }
-    .persona-card .nombre { font-weight: bold; color: #0f172a; font-size: 15px; }
+    .persona-card { background: #F8FAFC; border: 1px solid #DCE3EA; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; }
+    .persona-card .nombre { font-weight: 700; color: #10243E; font-size: 15px; }
     .persona-card .roles { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
-    .badge-rol { background: #dbeafe; color: #1e40af; padding: 3px 10px; border-radius: 999px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
-    .badge-rol button { background: none; border: none; color: #1e40af; font-weight: bold; cursor: pointer; padding: 0; font-size: 13px; line-height: 1; }
-    .sin-roles { color: #94a3b8; font-size: 13px; font-style: italic; }
+    .badge-rol { background: #E4F3F2; color: #0F6E68; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .badge-rol button { background: none; border: none; color: #0F6E68; font-weight: bold; cursor: pointer; padding: 0; font-size: 13px; line-height: 1; }
+    .sin-roles { color: #94A3B8; font-size: 13px; font-style: italic; }
 
     .form-asignar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 10px; }
     .form-asignar .form-group { margin-bottom: 0; flex: 1; min-width: 160px; }
 
-    .cargando { color: #64748b; font-style: italic; padding: 10px 0; }
+    .cargando { color: #64748B; font-style: italic; padding: 10px 0; }
+
+    /* Requisiciones */
+    .filtro-area { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+    .filtro-area label { margin-bottom: 0; }
+    .filtro-area select { width: auto; min-width: 220px; }
+    table.tabla-requisiciones { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    table.tabla-requisiciones th {
+      text-align: left; background: #F8FAFC; color: #475569; font-size: 12px; text-transform: uppercase;
+      letter-spacing: 0.03em; padding: 10px 12px; border-bottom: 2px solid #DCE3EA;
+    }
+    table.tabla-requisiciones td { padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #334155; }
+    table.tabla-requisiciones tr:hover td { background: #F8FAFC; }
+    .pill-estado { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .pill-generada { background: #DBEAFE; color: #1D4ED8; }
+    .pill-pendiente_firmas, .pill-pendiente_dg { background: #FEF3C7; color: #92400E; }
+    .pill-aprobada { background: #DCFCE7; color: #15803D; }
+    .pill-rechazada, .pill-cancelada { background: #F1F5F9; color: #64748B; }
   </style>
 </head>
 <body>
 
 <!-- ===================== VISTA: LOGIN ===================== -->
-<div id="vistaLogin" class="container">
+<div id="vistaLogin" class="contenedor">
   <h1>Iniciar sesión</h1>
-  <p style="color:#64748b; font-size:14px;">Gestión de Personal - Requisiciones Bussié</p>
+  <p style="color:#64748b; font-size:14px;">Gestión de Personal · Requisiciones Bussié</p>
   <div class="form-group">
     <label>Correo:</label>
     <input type="email" id="loginEmail" autocomplete="username">
@@ -8903,19 +8974,78 @@ var supabase = function(e) {
 </div>
 
 <!-- ===================== VISTA: APP (después de login) ===================== -->
-<div id="vistaApp" class="container hidden">
+<div id="vistaApp" class="contenedor hidden">
   <div class="barra-superior">
-    <h1 style="border:none; padding:0; margin:0;">Gestión de Personal</h1>
-    <div class="usuario-info">
-      <button class="secundario" style="padding:6px 12px; font-size:13px;" onclick="mostrarSeccionAreas()">Áreas</button>
-      <button class="secundario" style="padding:6px 12px; font-size:13px;" onclick="mostrarSeccionMiPerfil()">Mi perfil</button>
-      <strong id="nombreUsuarioActual"></strong>
-      &nbsp;·&nbsp;<button class="secundario" style="padding:6px 12px; font-size:13px;" onclick="cerrarSesion()">Cerrar sesión</button>
+    <h1>Gestión de Personal</h1>
+    <div class="esquina-usuario">
+      <div class="avatar-inicial" id="avatarUsuarioActual"></div>
+      <div class="datos">
+        <div class="nombre" id="nombreUsuarioActual"></div>
+        <div class="rol" id="rolesUsuarioActual"></div>
+      </div>
+      <div class="separador-vertical"></div>
+      <button class="secundario" style="padding:7px 12px; font-size:13px;" onclick="cerrarSesion()">Cerrar sesión</button>
     </div>
   </div>
 
-  <!-- ============ SECCIÓN: ÁREAS ============ -->
-  <div id="seccionAreas">
+  <!-- ============ SECCIÓN: INICIO ============ -->
+  <div id="seccionInicio">
+    <div class="inicio-botonera">
+      <div class="inicio-boton acento" onclick="mostrarSeccionCrearRequisicion()">
+        <div class="icono">📝</div>
+        <div class="texto">
+          <div class="titulo">Crear requisición</div>
+          <div class="desc">Llena y genera una nueva requisición de personal</div>
+        </div>
+      </div>
+      <div class="inicio-boton" onclick="mostrarSeccionVerRequisiciones()">
+        <div class="icono">📋</div>
+        <div class="texto">
+          <div class="titulo">Ver requisiciones</div>
+          <div class="desc" id="descVerRequisiciones">Consulta el estado de las requisiciones de tu área</div>
+        </div>
+      </div>
+      <div class="inicio-boton solo-developer hidden" id="botonAsignarRoles" onclick="mostrarSeccionAreas()">
+        <div class="icono">🔑</div>
+        <div class="texto">
+          <div class="titulo">Asignar roles por área</div>
+          <div class="desc">Solo visible para Developer</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECCIÓN: CREAR REQUISICIÓN ============ -->
+  <div id="seccionCrearRequisicion" class="hidden">
+    <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
+    <div class="section-title">Crear requisición</div>
+    <p style="color:#64748b; font-size:13px; margin-top:-8px;">
+      Ya estás identificado, así que el formulario no te va a volver a pedir la contraseña.
+    </p>
+    <iframe id="iframeRequisicion"
+      style="width:100%; height:1400px; border:1px solid #DCE3EA; border-radius:8px;"
+      title="Crear requisición"></iframe>
+  </div>
+
+  <!-- ============ SECCIÓN: VER REQUISICIONES ============ -->
+  <div id="seccionVerRequisiciones" class="hidden">
+    <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
+    <div class="section-title">Requisiciones</div>
+
+    <div class="filtro-area hidden" id="filtroAreaContenedor">
+      <label>Área:</label>
+      <select id="selectFiltroArea" onchange="cargarRequisiciones()">
+        <option value="todas">Todas las áreas</option>
+      </select>
+    </div>
+
+    <div id="listaRequisiciones"><div class="cargando">Cargando requisiciones...</div></div>
+  </div>
+
+  <!-- ============ SECCIÓN: ÁREAS (asignar roles, solo Developer) ============ -->
+  <div id="seccionAreas" class="hidden">
+    <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
+
     <!-- Vista de Áreas -->
     <div id="vistaAreas">
       <div class="section-title">Áreas</div>
@@ -8929,20 +9059,6 @@ var supabase = function(e) {
       <div id="listaPersonasArea"><div class="cargando">Cargando personas...</div></div>
     </div>
   </div>
-
-  <!-- ============ SECCIÓN: MI PERFIL ============ -->
-  <div id="seccionMiPerfil" class="hidden">
-    <div class="section-title">Mi perfil</div>
-    <p id="infoMiPerfil" style="color:#334155;"></p>
-
-    <div class="section-title">Crear requisición</div>
-    <p style="color:#64748b; font-size:13px; margin-top:-8px;">
-      Ya estás identificado, así que el formulario no te va a volver a pedir la contraseña.
-    </p>
-    <iframe id="iframeRequisicion"
-      style="width:100%; height:1400px; border:1px solid #e2e8f0; border-radius:8px;"
-      title="Crear requisición"></iframe>
-  </div>
 </div>
 
 <script>
@@ -8953,9 +9069,12 @@ var supabase = function(e) {
 
   // ---- Estado en memoria ----
   let usuarioActual = null;      // fila de la tabla usuarios para el usuario logueado
-  let puedeGestionarRoles = false;
+  let puedeGestionarRoles = false;   // solo Developer
+  let puedeVerTodasLasAreas = false; // Developer, Director general, Gerente de Talento Humano
   let catalogoRoles = [];        // [{id, nombre}]
+  let catalogoAreas = [];        // [{id, nombre}]
   let areaActualId = null;
+  let iframeRequisicionCargado = false;
 
   // ================== LOGIN / SESIÓN ==================
 
@@ -8982,6 +9101,7 @@ var supabase = function(e) {
     await sb.auth.signOut();
     usuarioActual = null;
     puedeGestionarRoles = false;
+    puedeVerTodasLasAreas = false;
     iframeRequisicionCargado = false;
     document.getElementById('iframeRequisicion').src = 'about:blank';
     document.getElementById('vistaApp').classList.add('hidden');
@@ -8996,7 +9116,6 @@ var supabase = function(e) {
       return;
     }
 
-    // Traer datos de la tabla usuarios + sus roles
     const { data: perfil, error: errPerfil } = await sb
       .from('usuarios')
       .select('id, nombre_completo, area_id, usuario_roles(rol_id, roles(id, nombre))')
@@ -9012,42 +9131,25 @@ var supabase = function(e) {
 
     usuarioActual = perfil;
     const nombresRoles = (perfil.usuario_roles || []).map(ur => ur.roles?.nombre).filter(Boolean);
-    puedeGestionarRoles = nombresRoles.includes('Developer') || nombresRoles.includes('Gerente de Talento Humano');
+    puedeGestionarRoles = nombresRoles.includes('Developer');
+    puedeVerTodasLasAreas = nombresRoles.some(r => ['Developer', 'Director general', 'Gerente de Talento Humano'].includes(r));
 
-    document.getElementById('nombreUsuarioActual').textContent =
-      perfil.nombre_completo + (nombresRoles.length ? ' (' + nombresRoles.join(', ') + ')' : '');
+    const iniciales = perfil.nombre_completo.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('');
+    document.getElementById('avatarUsuarioActual').textContent = iniciales;
+    document.getElementById('nombreUsuarioActual').textContent = perfil.nombre_completo;
+    document.getElementById('rolesUsuarioActual').textContent = nombresRoles.length ? nombresRoles.join(', ') : 'Sin roles asignados';
+
+    document.getElementById('botonAsignarRoles').classList.toggle('hidden', !puedeGestionarRoles);
+    document.getElementById('descVerRequisiciones').textContent = puedeVerTodasLasAreas
+      ? 'Consulta el estado de las requisiciones, filtrando por área'
+      : 'Consulta el estado de las requisiciones de tu área';
 
     document.getElementById('vistaLogin').classList.add('hidden');
     document.getElementById('vistaApp').classList.remove('hidden');
 
-    document.getElementById('infoMiPerfil').textContent =
-      'Nombre: ' + perfil.nombre_completo + (nombresRoles.length ? ' — Rol(es): ' + nombresRoles.join(', ') : ' — Sin roles asignados');
-
     await cargarCatalogoRoles();
-    await cargarAreas();
-    mostrarSeccionAreas();
-  }
-
-  // ================== NAVEGACIÓN ENTRE SECCIONES ==================
-
-  let iframeRequisicionCargado = false;
-
-  function mostrarSeccionAreas() {
-    document.getElementById('seccionAreas').classList.remove('hidden');
-    document.getElementById('seccionMiPerfil').classList.add('hidden');
-  }
-
-  function mostrarSeccionMiPerfil() {
-    document.getElementById('seccionAreas').classList.add('hidden');
-    document.getElementById('seccionMiPerfil').classList.remove('hidden');
-
-    // El formulario de requisición vive en index.html (mismo repositorio/carpeta).
-    // Como ya hay sesión activa de Supabase, index.html se salta su propio login
-    // y muestra el formulario directo, con el solicitante ya identificado.
-    if (!iframeRequisicionCargado) {
-      document.getElementById('iframeRequisicion').src = 'crear-requisicion.html';
-      iframeRequisicionCargado = true;
-    }
+    await cargarCatalogoAreas();
+    volverAlInicio();
   }
 
   // Al cargar la página, revisar si ya había una sesión activa
@@ -9058,32 +9160,89 @@ var supabase = function(e) {
     }
   });
 
-  // ================== CATÁLOGO DE ROLES ==================
+  // ================== CATÁLOGOS ==================
 
   async function cargarCatalogoRoles() {
     const { data, error } = await sb.from('roles').select('id, nombre').order('nombre');
     if (!error) catalogoRoles = data;
   }
 
-  // ================== ÁREAS ==================
+  async function cargarCatalogoAreas() {
+    const { data, error } = await sb.from('areas').select('id, nombre').order('nombre');
+    if (!error) catalogoAreas = data;
+  }
+
+  // ================== NAVEGACIÓN ENTRE SECCIONES ==================
+
+  function ocultarTodasLasSecciones() {
+    ['seccionInicio', 'seccionCrearRequisicion', 'seccionVerRequisiciones', 'seccionAreas'].forEach(id => {
+      document.getElementById(id).classList.add('hidden');
+    });
+  }
+
+  function volverAlInicio() {
+    ocultarTodasLasSecciones();
+    document.getElementById('seccionInicio').classList.remove('hidden');
+  }
+
+  function mostrarSeccionCrearRequisicion() {
+    ocultarTodasLasSecciones();
+    document.getElementById('seccionCrearRequisicion').classList.remove('hidden');
+
+    // El formulario de requisición vive en crear-requisicion.html (mismo repositorio/carpeta).
+    // Como ya hay sesión activa de Supabase, esa página se salta su propio login
+    // y muestra el formulario directo, con el solicitante ya identificado.
+    if (!iframeRequisicionCargado) {
+      document.getElementById('iframeRequisicion').src = 'crear-requisicion.html';
+      iframeRequisicionCargado = true;
+    }
+  }
+
+  function mostrarSeccionVerRequisiciones() {
+    ocultarTodasLasSecciones();
+    document.getElementById('seccionVerRequisiciones').classList.remove('hidden');
+
+    const filtroContenedor = document.getElementById('filtroAreaContenedor');
+    if (puedeVerTodasLasAreas) {
+      filtroContenedor.classList.remove('hidden');
+      const sel = document.getElementById('selectFiltroArea');
+      if (sel.options.length <= 1) {
+        catalogoAreas.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = String(a.id);
+          opt.textContent = a.nombre;
+          sel.appendChild(opt);
+        });
+      }
+    } else {
+      filtroContenedor.classList.add('hidden');
+    }
+
+    cargarRequisiciones();
+  }
+
+  function mostrarSeccionAreas() {
+    ocultarTodasLasSecciones();
+    document.getElementById('seccionAreas').classList.remove('hidden');
+    volverAAreas();
+    cargarAreas();
+  }
+
+  // ================== ÁREAS (gestión de roles, solo Developer) ==================
 
   async function cargarAreas() {
     const cont = document.getElementById('listaAreas');
     cont.innerHTML = '<div class="cargando">Cargando áreas...</div>';
 
-    const { data, error } = await sb.from('areas').select('id, nombre').order('nombre');
-    if (error) {
-      cont.innerHTML = '<div class="error-msg">Error al cargar áreas: ' + error.message + '</div>';
-      return;
-    }
+    if (!catalogoAreas.length) await cargarCatalogoAreas();
 
-    if (!data.length) {
+    if (!catalogoAreas.length) {
       cont.innerHTML = '<p class="sin-roles">No hay áreas registradas.</p>';
       return;
     }
 
     cont.innerHTML = '';
-    data.forEach(area => {
+    catalogoAreas.forEach(area => {
       const div = document.createElement('div');
       div.className = 'tarjeta-area';
       div.onclick = () => abrirArea(area.id, area.nombre);
@@ -9105,8 +9264,6 @@ var supabase = function(e) {
     document.getElementById('tituloAreaDetalle').textContent = areaNombre;
     await cargarPersonasDeArea(areaId);
   }
-
-  // ================== PERSONAS DE UN ÁREA + ROLES ==================
 
   async function cargarPersonasDeArea(areaId) {
     const cont = document.getElementById('listaPersonasArea');
@@ -9161,14 +9318,14 @@ var supabase = function(e) {
               ${opcionesRoles}
             </select>
           </div>
-          <button type="button" onclick="asignarRol('${persona.id}', this)">Asignar rol</button>
+          <button type="button" class="acento" onclick="asignarRol('${persona.id}', this)">Asignar rol</button>
         </div>
         <div class="ok-msg" id="msg-${persona.id}"></div>
       `;
     }
 
     card.innerHTML = `
-      <div class="nombre">${escaparHtml(persona.nombre_completo)}${persona.activo ? '' : ' <span style="color:#dc2626; font-weight:normal; font-size:12px;">(inactivo)</span>'}</div>
+      <div class="nombre">${escaparHtml(persona.nombre_completo)}${persona.activo ? '' : ' <span style="color:#B3402F; font-weight:normal; font-size:12px;">(inactivo)</span>'}</div>
       <div class="roles">${rolesHtml}</div>
       ${formAsignarHtml}
     `;
@@ -9215,6 +9372,83 @@ var supabase = function(e) {
       return;
     }
     await cargarPersonasDeArea(areaActualId);
+  }
+
+  // ================== VER REQUISICIONES ==================
+
+  const ETIQUETAS_ESTADO = {
+    generada: 'Generada',
+    pendiente_firmas: 'Pendiente de firmas',
+    pendiente_dg: 'Pendiente Dirección General',
+    aprobada: 'Aprobada',
+    rechazada: 'Rechazada',
+    cancelada: 'Cancelada'
+  };
+
+  async function cargarRequisiciones() {
+    const cont = document.getElementById('listaRequisiciones');
+    cont.innerHTML = '<div class="cargando">Cargando requisiciones...</div>';
+
+    // RLS ya limita lo que puede ver cada usuario (su área, o todas si tiene rol privilegiado).
+    // Este select trae, además, el área de quien creó cada requisición para mostrarla y, si aplica, filtrarla.
+    let consulta = sb
+      .from('requisiciones')
+      .select('id, numero_consecutivo, anio, estado, tipo_requisicion, nombre_solicitante, creado_en, usuarios(area_id, areas(nombre))')
+      .order('creado_en', { ascending: false });
+
+    const { data, error } = await consulta;
+
+    if (error) {
+      cont.innerHTML = '<div class="error-msg">Error al cargar requisiciones: ' + error.message + '</div>';
+      return;
+    }
+
+    let filas = data || [];
+
+    if (puedeVerTodasLasAreas) {
+      const filtro = document.getElementById('selectFiltroArea').value;
+      if (filtro !== 'todas') {
+        filas = filas.filter(r => String(r.usuarios?.area_id) === filtro);
+      }
+    }
+
+    if (!filas.length) {
+      cont.innerHTML = '<p class="sin-roles">No hay requisiciones para mostrar.</p>';
+      return;
+    }
+
+    const filasHtml = filas.map(r => `
+      <tr>
+        <td>#${r.numero_consecutivo}-${r.anio}</td>
+        <td>${escaparHtml(r.tipo_requisicion || '')}</td>
+        <td>${escaparHtml(r.nombre_solicitante || '')}</td>
+        <td>${escaparHtml(r.usuarios?.areas?.nombre || '—')}</td>
+        <td><span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span></td>
+        <td>${formatearFecha(r.creado_en)}</td>
+      </tr>
+    `).join('');
+
+    cont.innerHTML = `
+      <table class="tabla-requisiciones">
+        <thead>
+          <tr>
+            <th>N°</th>
+            <th>Tipo</th>
+            <th>Solicitante</th>
+            <th>Área</th>
+            <th>Estado</th>
+            <th>Creada</th>
+          </tr>
+        </thead>
+        <tbody>${filasHtml}</tbody>
+      </table>
+    `;
+  }
+
+  function formatearFecha(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 
   // ================== UTILIDADES ==================
