@@ -8907,22 +8907,41 @@ var supabase = function(e) {
   <div class="barra-superior">
     <h1 style="border:none; padding:0; margin:0;">Gestión de Personal</h1>
     <div class="usuario-info">
+      <button class="secundario" style="padding:6px 12px; font-size:13px;" onclick="mostrarSeccionAreas()">Áreas</button>
+      <button class="secundario" style="padding:6px 12px; font-size:13px;" onclick="mostrarSeccionMiPerfil()">Mi perfil</button>
       <strong id="nombreUsuarioActual"></strong>
       &nbsp;·&nbsp;<button class="secundario" style="padding:6px 12px; font-size:13px;" onclick="cerrarSesion()">Cerrar sesión</button>
     </div>
   </div>
 
-  <!-- Vista de Áreas -->
-  <div id="vistaAreas">
-    <div class="section-title">Áreas</div>
-    <div id="listaAreas" class="grid-areas"><div class="cargando">Cargando áreas...</div></div>
+  <!-- ============ SECCIÓN: ÁREAS ============ -->
+  <div id="seccionAreas">
+    <!-- Vista de Áreas -->
+    <div id="vistaAreas">
+      <div class="section-title">Áreas</div>
+      <div id="listaAreas" class="grid-areas"><div class="cargando">Cargando áreas...</div></div>
+    </div>
+
+    <!-- Vista de detalle de un Área -->
+    <div id="vistaAreaDetalle" class="hidden">
+      <button class="volver" onclick="volverAAreas()">&larr; Volver a Áreas</button>
+      <div class="section-title" id="tituloAreaDetalle">Área</div>
+      <div id="listaPersonasArea"><div class="cargando">Cargando personas...</div></div>
+    </div>
   </div>
 
-  <!-- Vista de detalle de un Área -->
-  <div id="vistaAreaDetalle" class="hidden">
-    <button class="volver" onclick="volverAAreas()">&larr; Volver a Áreas</button>
-    <div class="section-title" id="tituloAreaDetalle">Área</div>
-    <div id="listaPersonasArea"><div class="cargando">Cargando personas...</div></div>
+  <!-- ============ SECCIÓN: MI PERFIL ============ -->
+  <div id="seccionMiPerfil" class="hidden">
+    <div class="section-title">Mi perfil</div>
+    <p id="infoMiPerfil" style="color:#334155;"></p>
+
+    <div class="section-title">Crear requisición</div>
+    <p style="color:#64748b; font-size:13px; margin-top:-8px;">
+      Ya estás identificado, así que el formulario no te va a volver a pedir la contraseña.
+    </p>
+    <iframe id="iframeRequisicion"
+      style="width:100%; height:1400px; border:1px solid #e2e8f0; border-radius:8px;"
+      title="Crear requisición"></iframe>
   </div>
 </div>
 
@@ -8963,6 +8982,8 @@ var supabase = function(e) {
     await sb.auth.signOut();
     usuarioActual = null;
     puedeGestionarRoles = false;
+    iframeRequisicionCargado = false;
+    document.getElementById('iframeRequisicion').src = 'about:blank';
     document.getElementById('vistaApp').classList.add('hidden');
     document.getElementById('vistaLogin').classList.remove('hidden');
     document.getElementById('loginPassword').value = '';
@@ -8999,8 +9020,34 @@ var supabase = function(e) {
     document.getElementById('vistaLogin').classList.add('hidden');
     document.getElementById('vistaApp').classList.remove('hidden');
 
+    document.getElementById('infoMiPerfil').textContent =
+      'Nombre: ' + perfil.nombre_completo + (nombresRoles.length ? ' — Rol(es): ' + nombresRoles.join(', ') : ' — Sin roles asignados');
+
     await cargarCatalogoRoles();
     await cargarAreas();
+    mostrarSeccionAreas();
+  }
+
+  // ================== NAVEGACIÓN ENTRE SECCIONES ==================
+
+  let iframeRequisicionCargado = false;
+
+  function mostrarSeccionAreas() {
+    document.getElementById('seccionAreas').classList.remove('hidden');
+    document.getElementById('seccionMiPerfil').classList.add('hidden');
+  }
+
+  function mostrarSeccionMiPerfil() {
+    document.getElementById('seccionAreas').classList.add('hidden');
+    document.getElementById('seccionMiPerfil').classList.remove('hidden');
+
+    // El formulario de requisición vive en index.html (mismo repositorio/carpeta).
+    // Como ya hay sesión activa de Supabase, index.html se salta su propio login
+    // y muestra el formulario directo, con el solicitante ya identificado.
+    if (!iframeRequisicionCargado) {
+      document.getElementById('iframeRequisicion').src = 'crear-requisicion.html';
+      iframeRequisicionCargado = true;
+    }
   }
 
   // Al cargar la página, revisar si ya había una sesión activa
