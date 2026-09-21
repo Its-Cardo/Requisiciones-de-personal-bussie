@@ -84,6 +84,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         width: 10.5in !important;
       }
 
+      /* Quitar el fondo gris y el relleno decorativo que docx-preview agrega para la vista en pantalla
+         (simula hojas flotando sobre fondo oscuro) — eso no debe imprimirse */
+      #print-view .docx-wrapper {
+        background: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      #print-view .docx-wrapper > section.docx {
+        margin: 0 !important;
+        box-shadow: none !important;
+      }
+
       @page { size: 10.5in 11in; margin: 0; }
     }
   </style>
@@ -448,6 +460,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return;
     }
 
+    // El navegador usa el título de la página como nombre sugerido al "Guardar como PDF".
+    // Se cambia aquí, temprano, para darle tiempo al navegador de registrarlo antes de imprimir.
+    const nombreCargoArchivo = document.getElementById('nombre_cargo').value.replace(/\s+/g, '_') || 'Nuevo';
+    const tituloOriginal = document.title;
+    document.title = `Requisicion_${nombreCargoArchivo}`;
+
     // 0.1 Si ya se generó una requisición en esta sesión, preguntar si es una copia
     let esCopia = false;
     if (ultimaRequisicionGenerada) {
@@ -457,6 +475,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (quiereCopia) {
         esCopia = true;
       } else {
+        document.title = tituloOriginal; // Restaurar, ya que no se va a imprimir nada
         return; // Cancela la operación y se queda en el formulario, sin generar nada
       }
     }
@@ -543,10 +562,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       contenedorImpresion.innerHTML = '';
       await docx.renderAsync(docxGenerado, contenedorImpresion, null, { inWrapper: true });
 
-      // El navegador usa el título de la página como nombre sugerido al "Guardar como PDF"
-      const nombreCargoArchivo = document.getElementById('nombre_cargo').value.replace(/\s+/g, '_') || 'Nuevo';
-      const tituloOriginal = document.title;
-      document.title = `Requisicion_${nombreCargoArchivo}`;
+      // Pequeña pausa para asegurar que el navegador ya registró el cambio de título
+      // (el nombre sugerido del PDF) antes de abrir el diálogo de impresión
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       window.print();
 
@@ -557,6 +575,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     } catch (error) {
       console.error(error);
+      document.title = tituloOriginal;
       mensajeDiv.style.color = '#b91c1c';
       mensajeDiv.textContent = '';
       alert("Hubo un error: " + error.message);
