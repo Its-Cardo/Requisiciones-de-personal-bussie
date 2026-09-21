@@ -15432,10 +15432,6 @@
 
     button { background-color: #1CA7A0; color: white; border: none; padding: 15px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 30px; display: flex; justify-content: center; align-items: center;}
     button:hover { background-color: #178B85; }
-    #login-container { max-width: 400px; margin: 60px auto; }
-    #login-container button { background-color: #10243E; }
-    #login-container button:hover { background-color: #0B1A2D; }
-    #login-error { color: #b91c1c; font-size: 13px; margin-top: 8px; }
     #cancelacion-container { border: 1px solid #DCE3EA; border-radius: 8px; padding: 15px; margin-top: 25px; background-color: #EEF1F5; }
     #cancelacion-container button { background-color: #b91c1c; }
     #cancelacion-container button:hover { background-color: #991b1b; }
@@ -22336,12 +22332,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     let ultimaRequisicionGenerada = null; // Guarda { numero_consecutivo, anio } de la última requisición generada en esta sesión
   </script>
   <script>
-    // Si esta página se abre ya con una sesión activa de Supabase (por ejemplo, embebida
-    // desde gestion.html dentro del perfil de una persona), se salta la pantalla de login
-    // y se entra directo al formulario, igual que si hubiera iniciado sesión a mano.
+    // Esta página siempre se abre embebida desde gestion.html (dentro del perfil de una
+    // persona ya autenticada), así que solo carga el perfil de quien ya inició sesión ahí
+    // y muestra el formulario directo. Si por algún motivo se abre sin sesión activa
+    // (por ejemplo, el archivo suelto sin pasar por la página de gestión), se queda en blanco.
     window.addEventListener('DOMContentLoaded', async () => {
       const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) return; // sin sesión activa: se queda la pantalla de login normal
+      if (!session) return; // sin sesión activa: la página se queda en blanco
 
       const { data: perfil, error: errorPerfil } = await supabaseClient
         .from('usuarios')
@@ -22349,31 +22346,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         .eq('id', session.user.id)
         .single();
 
-      if (errorPerfil || !perfil) return; // si algo falla, queda el login normal como respaldo
+      if (errorPerfil || !perfil) return; // si algo falla, la página se queda en blanco
 
       usuarioActual = perfil;
       document.getElementById('nombre_solicitante').value = perfil.nombre_completo;
-      document.getElementById('login-container').style.display = 'none';
       document.getElementById('form-container').style.display = 'block';
     });
   </script>
 </head>
 <body>
-
-<!-- Pantalla de inicio de sesión -->
-<div class="container" id="login-container">
-  <h1>Iniciar Sesión</h1>
-  <div class="form-group">
-    <label>Correo:</label>
-    <input type="email" id="login_email">
-  </div>
-  <div class="form-group">
-    <label>Contraseña:</label>
-    <input type="password" id="login_password">
-  </div>
-  <button type="button" onclick="iniciarSesion()">Iniciar Sesión</button>
-  <div id="login-error"></div>
-</div>
 
 <div class="container" id="form-container" style="display:none;">
   <h1>Formato Requisición de Personal F-TH-028</h1>
@@ -22603,36 +22584,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!requiereDuracion) {
       campoMeses.value = '';
     }
-  }
-
-  // Inicia sesión con Supabase Auth (email + contraseña) y carga el perfil del usuario
-  async function iniciarSesion() {
-    const email = document.getElementById('login_email').value;
-    const password = document.getElementById('login_password').value;
-    const errorDiv = document.getElementById('login-error');
-    errorDiv.textContent = '';
-
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) {
-      errorDiv.textContent = 'No se pudo iniciar sesión: ' + error.message;
-      return;
-    }
-
-    const { data: perfil, error: errorPerfil } = await supabaseClient
-      .from('usuarios')
-      .select('id, nombre_completo')
-      .eq('id', data.user.id)
-      .single();
-
-    if (errorPerfil || !perfil) {
-      errorDiv.textContent = 'Se inició sesión pero no se encontró tu perfil de usuario. Contacta al administrador.';
-      return;
-    }
-
-    usuarioActual = perfil;
-    document.getElementById('nombre_solicitante').value = perfil.nombre_completo;
-    document.getElementById('login-container').style.display = 'none';
-    document.getElementById('form-container').style.display = 'block';
   }
 
   // Muestra u oculta el formulario de cancelación
