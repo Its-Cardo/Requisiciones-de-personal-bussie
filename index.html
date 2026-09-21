@@ -70,6 +70,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       #print-view, #print-view * { visibility: visible; }
       #print-view { display: block; position: absolute; top: 0; left: 0; width: 100%; }
 
+      /* Forzar que se impriman los colores de fondo (encabezados azules de las tablas),
+         sin depender de que el usuario active "Gráficos de fondo" en el diálogo de impresión */
+      #print-view, #print-view * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+
       /* La(s) hoja(s) que dibuja docx-preview se ensanchan para que quepan las tablas
          que en la plantilla original se pasan del margen (ver explicación dada a Aleja) */
       #print-view .docx-wrapper > section.docx {
@@ -534,7 +542,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const contenedorImpresion = document.getElementById('print-view');
       contenedorImpresion.innerHTML = '';
       await docx.renderAsync(docxGenerado, contenedorImpresion, null, { inWrapper: true });
+
+      // El navegador usa el título de la página como nombre sugerido al "Guardar como PDF"
+      const nombreCargoArchivo = document.getElementById('nombre_cargo').value.replace(/\s+/g, '_') || 'Nuevo';
+      const tituloOriginal = document.title;
+      document.title = `Requisicion_${nombreCargoArchivo}`;
+
       window.print();
+
+      // Restaurar el título original de la pestaña después de imprimir
+      window.addEventListener('afterprint', () => {
+        document.title = tituloOriginal;
+      }, { once: true });
 
     } catch (error) {
       console.error(error);
