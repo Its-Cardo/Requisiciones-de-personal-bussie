@@ -8953,6 +8953,14 @@ var supabase = function(e) {
     .pill-pendiente_firmas, .pill-pendiente_dg { background: #FEF3C7; color: #92400E; }
     .pill-aprobada { background: #DCFCE7; color: #15803D; }
     .pill-rechazada, .pill-cancelada { background: #F1F5F9; color: #64748B; }
+
+    /* Crear usuario (solo Developer) */
+    .cabecera-areas { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+    .cabecera-areas .section-title { margin-top: 0; margin-bottom: 0; border: none; padding: 0; }
+    .panel-crear-usuario { background: #F8FAFC; border: 1px solid #DCE3EA; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+    .panel-crear-usuario .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .panel-crear-usuario .acciones { display: flex; gap: 10px; margin-top: 6px; }
+    .nota-clave { color: #64748B; font-size: 12.5px; margin-top: -6px; margin-bottom: 15px; }
   </style>
 </head>
 <body>
@@ -9048,7 +9056,42 @@ var supabase = function(e) {
 
     <!-- Vista de Áreas -->
     <div id="vistaAreas">
-      <div class="section-title">Áreas</div>
+      <div class="cabecera-areas">
+        <div class="section-title">Áreas</div>
+        <button type="button" class="secundario" onclick="toggleFormCrearUsuario()" id="botonToggleCrearUsuario">+ Crear usuario</button>
+      </div>
+
+      <div class="panel-crear-usuario hidden" id="panelCrearUsuario">
+        <h2 style="font-size:16px; margin-bottom:4px;">Crear usuario</h2>
+        <p class="nota-clave">Esto crea la cuenta de acceso (correo y contraseña) y el registro de la persona en un solo paso. Ella podrá iniciar sesión de inmediato con la contraseña que definas aquí.</p>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Nombre completo:</label>
+            <input type="text" id="nuevoUsuarioNombre">
+          </div>
+          <div class="form-group">
+            <label>Área:</label>
+            <select id="nuevoUsuarioArea">
+              <option value="">Sin área asignada</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Correo:</label>
+            <input type="email" id="nuevoUsuarioEmail" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Contraseña temporal:</label>
+            <input type="text" id="nuevoUsuarioPassword" autocomplete="off">
+          </div>
+        </div>
+        <div class="acciones">
+          <button type="button" class="acento" onclick="crearUsuario()" id="botonCrearUsuario">Crear usuario</button>
+          <button type="button" class="secundario" onclick="toggleFormCrearUsuario()">Cancelar</button>
+        </div>
+        <div class="error-msg" id="crearUsuarioError"></div>
+        <div class="ok-msg" id="crearUsuarioOk"></div>
+      </div>
+
       <div id="listaAreas" class="grid-areas"><div class="cargando">Cargando áreas...</div></div>
     </div>
 
@@ -9236,6 +9279,8 @@ var supabase = function(e) {
 
     if (!catalogoAreas.length) await cargarCatalogoAreas();
 
+    llenarSelectAreaNuevoUsuario();
+
     if (!catalogoAreas.length) {
       cont.innerHTML = '<p class="sin-roles">No hay áreas registradas.</p>';
       return;
@@ -9249,6 +9294,85 @@ var supabase = function(e) {
       div.innerHTML = `<h3>${escaparHtml(area.nombre)}</h3><p>Ver personas y roles</p>`;
       cont.appendChild(div);
     });
+  }
+
+  // ================== CREAR USUARIO (solo Developer) ==================
+
+  function llenarSelectAreaNuevoUsuario() {
+    const sel = document.getElementById('nuevoUsuarioArea');
+    if (!sel || sel.options.length > 1) return;
+    catalogoAreas.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = String(a.id);
+      opt.textContent = a.nombre;
+      sel.appendChild(opt);
+    });
+  }
+
+  function toggleFormCrearUsuario() {
+    const panel = document.getElementById('panelCrearUsuario');
+    const oculto = panel.classList.toggle('hidden');
+    document.getElementById('botonToggleCrearUsuario').textContent = oculto ? '+ Crear usuario' : 'Ocultar formulario';
+    if (oculto) {
+      ['nuevoUsuarioNombre', 'nuevoUsuarioEmail', 'nuevoUsuarioPassword'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('nuevoUsuarioArea').value = '';
+      document.getElementById('crearUsuarioError').textContent = '';
+      document.getElementById('crearUsuarioOk').textContent = '';
+    }
+  }
+
+  async function crearUsuario() {
+    const nombre_completo = document.getElementById('nuevoUsuarioNombre').value.trim();
+    const email = document.getElementById('nuevoUsuarioEmail').value.trim();
+    const password = document.getElementById('nuevoUsuarioPassword').value;
+    const area_id = document.getElementById('nuevoUsuarioArea').value || null;
+    const errorEl = document.getElementById('crearUsuarioError');
+    const okEl = document.getElementById('crearUsuarioOk');
+    errorEl.textContent = '';
+    okEl.textContent = '';
+
+    if (!nombre_completo || !email || !password) {
+      errorEl.textContent = 'Completa nombre, correo y contraseña.';
+      return;
+    }
+    if (password.length < 6) {
+      errorEl.textContent = 'La contraseña debe tener al menos 6 caracteres.';
+      return;
+    }
+
+    const botonEl = document.getElementById('botonCrearUsuario');
+    botonEl.disabled = true;
+    botonEl.textContent = 'Creando...';
+
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const resp = await fetch(SUPABASE_URL + '/functions/v1/crear-usuario', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + session.access_token,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ nombre_completo, email, password, area_id: area_id ? Number(area_id) : null }),
+      });
+      const resultado = await resp.json();
+
+      if (!resp.ok) {
+        errorEl.textContent = resultado.error || 'No se pudo crear el usuario.';
+        return;
+      }
+
+      okEl.textContent = 'Usuario creado. Ya puede iniciar sesión con el correo y la contraseña que definiste. Entra a su área para asignarle un rol.';
+      ['nuevoUsuarioNombre', 'nuevoUsuarioEmail', 'nuevoUsuarioPassword'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('nuevoUsuarioArea').value = '';
+
+      if (areaActualId !== null) await cargarPersonasDeArea(areaActualId);
+    } catch (e) {
+      errorEl.textContent = 'Error de red al crear el usuario: ' + e.message;
+    } finally {
+      botonEl.disabled = false;
+      botonEl.textContent = 'Crear usuario';
+    }
   }
 
   function volverAAreas() {
