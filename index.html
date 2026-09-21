@@ -9517,7 +9517,7 @@ var supabase = function(e) {
     // Este select trae, además, el área de quien creó cada requisición para mostrarla y, si aplica, filtrarla.
     let consulta = sb
       .from('requisiciones')
-      .select('id, numero_consecutivo, anio, estado, tipo_requisicion, nombre_solicitante, creado_en, usuarios(area_id, areas(nombre))')
+      .select('id, numero_consecutivo, anio, estado, tipo_requisicion, nombre_solicitante, creado_en, datos_formulario, usuarios(area_id, areas(nombre))')
       .order('creado_en', { ascending: false });
 
     const { data, error } = await consulta;
@@ -9545,6 +9545,7 @@ var supabase = function(e) {
       <tr>
         <td>#${r.numero_consecutivo}-${r.anio}</td>
         <td>${escaparHtml(r.tipo_requisicion || '')}</td>
+        <td>${escaparHtml(r.datos_formulario?.nombre_cargo || '—')}</td>
         <td>${escaparHtml(r.nombre_solicitante || '')}</td>
         <td>${escaparHtml(r.usuarios?.areas?.nombre || '—')}</td>
         <td><span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span></td>
@@ -9558,6 +9559,7 @@ var supabase = function(e) {
           <tr>
             <th>N°</th>
             <th>Tipo</th>
+            <th>Cargo</th>
             <th>Solicitante</th>
             <th>Área</th>
             <th>Estado</th>
