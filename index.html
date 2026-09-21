@@ -94,6 +94,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       #print-view .docx-wrapper > section.docx {
         margin: 0 !important;
         box-shadow: none !important;
+        overflow: hidden !important;
+      }
+
+      /* Cada "section.docx" es una página real del Word original (ej: la de firmas y la de uso
+         exclusivo de Talento Humano). Forzamos que cada una empiece en una hoja física nueva,
+         en vez de dejar que el navegador corte el contenido según el alto del papel */
+      #print-view .docx-wrapper > section.docx {
+        break-after: page;
+      }
+      #print-view .docx-wrapper > section.docx:last-child {
+        break-after: auto;
       }
 
       @page { size: 10.5in 11in; margin: 0; }
@@ -561,6 +572,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const contenedorImpresion = document.getElementById('print-view');
       contenedorImpresion.innerHTML = '';
       await docx.renderAsync(docxGenerado, contenedorImpresion, null, { inWrapper: true });
+
+      // El salto de página original del Word está insertado dentro de una celda de tabla,
+      // y docx-preview no lo reconoce automáticamente ahí. Se fuerza manualmente el salto
+      // justo antes de la sección "ÁREA EXCLUSIVA PARA USO DE TALENTO HUMANO".
+      const filasTabla = contenedorImpresion.querySelectorAll('tr');
+      for (const fila of filasTabla) {
+        if (fila.textContent.includes('ÁREA EXCLUSIVA PARA USO DE TALENTO HUMANO')) {
+          fila.style.breakBefore = 'page';
+          fila.style.pageBreakBefore = 'always';
+          break;
+        }
+      }
 
       // Pequeña pausa para asegurar que el navegador ya registró el cambio de título
       // (el nombre sugerido del PDF) antes de abrir el diálogo de impresión
