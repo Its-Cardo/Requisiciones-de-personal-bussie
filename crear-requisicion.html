@@ -22350,6 +22350,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
       usuarioActual = perfil;
       document.getElementById('nombre_solicitante').value = perfil.nombre_completo;
+
+      // Si la página se abre desde "Ver requisiciones" (?ver=ID), se muestra en modo solo lectura
+      const idVer = new URLSearchParams(window.location.search).get('ver');
+      if (idVer) {
+        await cargarModoLectura(idVer);
+        return;
+      }
+
       document.getElementById('form-container').style.display = 'block';
     });
   </script>
@@ -22765,6 +22773,133 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       document.title = tituloOriginal;
       mensajeDiv.style.color = '#b91c1c';
       mensajeDiv.textContent = '';
+      alert("Hubo un error: " + error.message);
+    }
+  }
+
+  // ================== MODO SOLO LECTURA (Ver requisiciones) ==================
+  let requisicionEnConsulta = null; // Guarda la requisición cargada en modo solo lectura
+
+  async function cargarModoLectura(id) {
+    const { data: req, error } = await supabaseClient
+      .from('requisiciones')
+      .select('id, numero_consecutivo, anio, estado, nombre_solicitante, datos_formulario')
+      .eq('id', id)
+      .single();
+
+    const contenedor = document.getElementById('form-container');
+    const titulo = contenedor.querySelector('h1');
+    const intro = contenedor.querySelector('h1 + p');
+
+    if (error || !req) {
+      titulo.textContent = 'Requisición no encontrada';
+      intro.textContent = 'No se pudo cargar la requisición o no tienes permiso para verla.';
+      document.getElementById('reqForm').style.display = 'none';
+      ocultarControlesDeEdicion();
+      contenedor.style.display = 'block';
+      return;
+    }
+
+    requisicionEnConsulta = req;
+    const d = req.datos_formulario || {};
+    const poner = (idCampo, valor) => { document.getElementById(idCampo).value = valor ?? ''; };
+
+    poner('nombre_solicitante', req.nombre_solicitante);
+    poner('fecha_solicitud', d.fecha_solicitud);
+    poner('compania', d.compania);
+    poner('nombre_cargo', d.nombre_cargo);
+    poner('area', d.area);
+    poner('direccion', d.direccion);
+    poner('centro_costo', d.centro_costo);
+    poner('ciudad', d.ciudad);
+    poner('tipo_requisicion', d.tipo_requisicion);
+    poner('motivo_vacante', d.motivo_vacante);
+    poner('tipo_contrato', d.tipo_contrato);
+    toggleDuracion(d.tipo_contrato);
+    poner('meses', d.meses);
+    poner('horario', d.horario);
+    poner('reemplazo', d.reemplazo);
+    poner('justificacion', d.justificacion);
+    poner('requerimientos', d.requerimientos);
+    poner('txt_otro', d.otro);
+
+    const presupuestado = d.xno === 'X' ? 'NO' : 'SI';
+    document.querySelector(`input[name="presupuestado"][value="${presupuestado}"]`).checked = true;
+
+    ['a','b','c','d','f','g','h','i','j','k','l','m','n','o','p','q'].forEach(letra => {
+      document.getElementById('chk_' + letra).checked = d[letra] === 'X';
+    });
+
+    // Bloquear todos los campos del formulario
+    document.querySelectorAll('#reqForm input, #reqForm select, #reqForm textarea').forEach(el => {
+      el.disabled = true;
+    });
+
+    titulo.textContent = `Requisición #${req.numero_consecutivo}-${req.anio}`;
+    intro.textContent = 'Consulta en modo solo lectura. Los campos no se pueden modificar.';
+
+    ocultarControlesDeEdicion();
+
+    // Botón para imprimir la requisición guardada (con su mismo número, sin crear uno nuevo)
+    const botonImprimir = document.createElement('button');
+    botonImprimir.type = 'button';
+    botonImprimir.textContent = '🖨️ Imprimir Requisición (PDF)';
+    botonImprimir.onclick = imprimirRequisicionGuardada;
+    document.getElementById('reqForm').appendChild(botonImprimir);
+
+    contenedor.style.display = 'block';
+  }
+
+  // Oculta los botones de generar, limpiar y la sección de cancelación
+  function ocultarControlesDeEdicion() {
+    const botonGenerar = document.querySelector('button[onclick="generarDocumento()"]');
+    if (botonGenerar) botonGenerar.style.display = 'none';
+    const botonNueva = document.querySelector('button[onclick="nuevaRequisicion()"]');
+    if (botonNueva) botonNueva.parentElement.style.display = 'none';
+    const botonCancelar = document.querySelector('button[onclick="toggleCancelacion()"]');
+    if (botonCancelar) botonCancelar.parentElement.style.display = 'none';
+    document.getElementById('cancelacion-container').style.display = 'none';
+  }
+
+  // Imprime la requisición guardada usando la misma plantilla oficial de Word
+  async function imprimirRequisicionGuardada() {
+    if (!requisicionEnConsulta) return;
+    const datos = Object.assign({}, requisicionEnConsulta.datos_formulario || {});
+    datos.cont = String(requisicionEnConsulta.numero_consecutivo);
+
+    const tituloOriginal = document.title;
+    document.title = `Requisicion_${(datos.nombre_cargo || 'Nuevo').replace(/\s+/g, '_')}`;
+
+    try {
+      const nombrePlantilla = "COPIA_F-TH-028_REQUISICIÓN_DE_PERSONAL _V03.docx";
+      const respuesta = await fetch(nombrePlantilla);
+      if (!respuesta.ok) throw new Error("No se pudo cargar la plantilla. Verifica el nombre exacto del archivo de Word.");
+
+      const arrayBuffer = await respuesta.arrayBuffer();
+      const zip = new PizZip(arrayBuffer);
+      const docWord = new window.docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+      docWord.render(datos);
+      const docxGenerado = docWord.getZip().generate({ type: "arraybuffer" });
+
+      const contenedorImpresion = document.getElementById('print-view');
+      contenedorImpresion.innerHTML = '';
+      await docx.renderAsync(docxGenerado, contenedorImpresion, null, { inWrapper: true });
+
+      // Mismo salto de página forzado que en la generación normal
+      for (const fila of contenedorImpresion.querySelectorAll('tr')) {
+        if (fila.textContent.includes('ÁREA EXCLUSIVA PARA USO DE TALENTO HUMANO')) {
+          fila.style.breakBefore = 'page';
+          fila.style.pageBreakBefore = 'always';
+          break;
+        }
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+      window.print();
+      window.addEventListener('afterprint', () => { document.title = tituloOriginal; }, { once: true });
+    } catch (error) {
+      console.error(error);
+      document.title = tituloOriginal;
       alert("Hubo un error: " + error.message);
     }
   }

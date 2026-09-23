@@ -9050,6 +9050,15 @@ var supabase = function(e) {
     <div id="listaRequisiciones"><div class="cargando">Cargando requisiciones...</div></div>
   </div>
 
+  <!-- ============ SECCIÓN: DETALLE DE REQUISICIÓN (solo lectura) ============ -->
+  <div id="seccionDetalleRequisicion" class="hidden">
+    <button class="volver" onclick="mostrarSeccionVerRequisiciones()">&larr; Volver a la lista</button>
+    <div class="section-title">Consultar requisición</div>
+    <iframe id="iframeDetalleRequisicion"
+      style="width:100%; height:1400px; border:1px solid #DCE3EA; border-radius:8px;"
+      title="Consultar requisición"></iframe>
+  </div>
+
   <!-- ============ SECCIÓN: ÁREAS (asignar roles, solo Developer) ============ -->
   <div id="seccionAreas" class="hidden">
     <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
@@ -9147,6 +9156,7 @@ var supabase = function(e) {
     puedeVerTodasLasAreas = false;
     iframeRequisicionCargado = false;
     document.getElementById('iframeRequisicion').src = 'about:blank';
+    document.getElementById('iframeDetalleRequisicion').src = 'about:blank';
     document.getElementById('vistaApp').classList.add('hidden');
     document.getElementById('vistaLogin').classList.remove('hidden');
     document.getElementById('loginPassword').value = '';
@@ -9218,7 +9228,7 @@ var supabase = function(e) {
   // ================== NAVEGACIÓN ENTRE SECCIONES ==================
 
   function ocultarTodasLasSecciones() {
-    ['seccionInicio', 'seccionCrearRequisicion', 'seccionVerRequisiciones', 'seccionAreas'].forEach(id => {
+    ['seccionInicio', 'seccionCrearRequisicion', 'seccionVerRequisiciones', 'seccionDetalleRequisicion', 'seccionAreas'].forEach(id => {
       document.getElementById(id).classList.add('hidden');
     });
   }
@@ -9550,6 +9560,7 @@ var supabase = function(e) {
         <td>${escaparHtml(r.usuarios?.areas?.nombre || '—')}</td>
         <td><span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span></td>
         <td>${formatearFecha(r.creado_en)}</td>
+        <td><button class="secundario" style="padding:4px 12px; font-size:12px;" onclick="verRequisicion('${escaparHtml(String(r.id))}')">Ver</button></td>
       </tr>
     `).join('');
 
@@ -9564,11 +9575,19 @@ var supabase = function(e) {
             <th>Área</th>
             <th>Estado</th>
             <th>Creada</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>${filasHtml}</tbody>
       </table>
     `;
+  }
+
+  // Abre la requisición elegida en el formulario, en modo solo lectura
+  function verRequisicion(id) {
+    ocultarTodasLasSecciones();
+    document.getElementById('seccionDetalleRequisicion').classList.remove('hidden');
+    document.getElementById('iframeDetalleRequisicion').src = 'crear-requisicion.html?ver=' + encodeURIComponent(id);
   }
 
   function formatearFecha(iso) {
