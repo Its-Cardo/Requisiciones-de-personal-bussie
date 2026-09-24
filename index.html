@@ -9098,8 +9098,20 @@ var supabase = function(e) {
         <p class="nota-clave">Esto crea la cuenta de acceso (correo y contraseña) y el registro de la persona en un solo paso. Ella podrá iniciar sesión de inmediato con la contraseña que definas aquí.</p>
         <div class="grid-2">
           <div class="form-group">
-            <label>Nombre completo:</label>
-            <input type="text" id="nuevoUsuarioNombre">
+            <label>Primer nombre:</label>
+            <input type="text" id="nuevoUsuarioPrimerNombre" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Segundo nombre (si tiene):</label>
+            <input type="text" id="nuevoUsuarioSegundoNombre" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Primer apellido:</label>
+            <input type="text" id="nuevoUsuarioPrimerApellido" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Segundo apellido:</label>
+            <input type="text" id="nuevoUsuarioSegundoApellido" autocomplete="off">
           </div>
           <div class="form-group">
             <label>Área:</label>
@@ -9350,7 +9362,7 @@ var supabase = function(e) {
     const oculto = panel.classList.toggle('hidden');
     document.getElementById('botonToggleCrearUsuario').textContent = oculto ? '+ Crear usuario' : 'Ocultar formulario';
     if (oculto) {
-      ['nuevoUsuarioNombre', 'nuevoUsuarioEmail', 'nuevoUsuarioPassword'].forEach(id => document.getElementById(id).value = '');
+      ['nuevoUsuarioPrimerNombre', 'nuevoUsuarioSegundoNombre', 'nuevoUsuarioPrimerApellido', 'nuevoUsuarioSegundoApellido', 'nuevoUsuarioEmail', 'nuevoUsuarioPassword'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('nuevoUsuarioArea').value = '';
       document.getElementById('crearUsuarioError').textContent = '';
       document.getElementById('crearUsuarioOk').textContent = '';
@@ -9358,7 +9370,11 @@ var supabase = function(e) {
   }
 
   async function crearUsuario() {
-    const nombre_completo = document.getElementById('nuevoUsuarioNombre').value.trim();
+    const valor = (id) => document.getElementById(id).value.trim().replace(/\s+/g, ' ');
+    const primer_nombre = valor('nuevoUsuarioPrimerNombre');
+    const segundo_nombre = valor('nuevoUsuarioSegundoNombre');
+    const primer_apellido = valor('nuevoUsuarioPrimerApellido');
+    const segundo_apellido = valor('nuevoUsuarioSegundoApellido');
     const email = document.getElementById('nuevoUsuarioEmail').value.trim();
     const password = document.getElementById('nuevoUsuarioPassword').value;
     const area_id = document.getElementById('nuevoUsuarioArea').value || null;
@@ -9367,8 +9383,8 @@ var supabase = function(e) {
     errorEl.textContent = '';
     okEl.textContent = '';
 
-    if (!nombre_completo || !email || !password) {
-      errorEl.textContent = 'Completa nombre, correo y contraseña.';
+    if (!primer_nombre || !primer_apellido || !segundo_apellido || !email || !password) {
+      errorEl.textContent = 'Completa primer nombre, primer apellido, segundo apellido, correo y contraseña.';
       return;
     }
     if (password.length < 6) {
@@ -9389,7 +9405,7 @@ var supabase = function(e) {
           'Authorization': 'Bearer ' + session.access_token,
           'apikey': SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ nombre_completo, email, password, area_id: area_id ? Number(area_id) : null }),
+        body: JSON.stringify({ primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, email, password, area_id: area_id ? Number(area_id) : null }),
       });
       const resultado = await resp.json();
 
@@ -9399,7 +9415,7 @@ var supabase = function(e) {
       }
 
       okEl.textContent = 'Usuario creado. Ya puede iniciar sesión con el correo y la contraseña que definiste. Entra a su área para asignarle un rol.';
-      ['nuevoUsuarioNombre', 'nuevoUsuarioEmail', 'nuevoUsuarioPassword'].forEach(id => document.getElementById(id).value = '');
+      ['nuevoUsuarioPrimerNombre', 'nuevoUsuarioSegundoNombre', 'nuevoUsuarioPrimerApellido', 'nuevoUsuarioSegundoApellido', 'nuevoUsuarioEmail', 'nuevoUsuarioPassword'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('nuevoUsuarioArea').value = '';
 
       if (areaActualId !== null) await cargarPersonasDeArea(areaActualId);
