@@ -9085,7 +9085,7 @@ var supabase = function(e) {
     <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
     <div class="section-title">Organigrama</div>
     <p style="color:#64748b; font-size:13px; margin-top:-8px;">
-      Cargos de cada área con su nivel jerárquico y el cargo de su jefe inmediato. El jefe inmediato es el que se sugiere para firma en el formulario. Los cambios se guardan al instante.
+      Cargos de cada área (ordenados por nivel jerárquico) y el cargo de su jefe inmediato. El jefe inmediato es el que se sugiere para firma en el formulario. Los cambios se guardan al instante.
     </p>
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
       <label for="selectAreaOrganigrama" style="font-size:14px;">Área:</label>
@@ -9098,7 +9098,7 @@ var supabase = function(e) {
       <div style="font-weight:600; font-size:14px; margin-bottom:10px; color:#10243E;">Agregar un cargo a esta área</div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
         <select id="nuevoCargoOrganigrama" style="flex:2; min-width:220px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
-        <select id="nuevoNivelOrganigrama" style="flex:0 0 110px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
+        <select id="nuevoNivelOrganigrama" style="display:none; flex:0 0 110px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
         <select id="nuevoJefeOrganigrama" style="flex:2; min-width:220px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
         <button class="acento" onclick="agregarCargoOrganigrama()">Agregar</button>
       </div>
@@ -9805,12 +9805,11 @@ var supabase = function(e) {
       cont.innerHTML = `
         <div style="overflow-x:auto;">
         <table class="tabla-requisiciones">
-          <thead><tr><th>Cargo</th><th style="width:90px;">Nivel</th><th>Jefe inmediato</th><th style="width:80px;"></th></tr></thead>
+          <thead><tr><th>Cargo</th><th>Jefe inmediato</th><th style="width:80px;"></th></tr></thead>
           <tbody>
             ${filas.map(f => `
               <tr>
                 <td>${escaparHtml(nombreCargoOrg(f.cargo_id))}</td>
-                <td><select onchange="actualizarFilaOrganigrama(${f.area_id}, ${f.cargo_id}, 'nivel', this.value)" style="padding:4px; border:1px solid #B7C2CE; border-radius:4px;">${opcionesNivelHtml(f.nivel)}</select></td>
                 <td><select onchange="actualizarFilaOrganigrama(${f.area_id}, ${f.cargo_id}, 'jefe_cargo_id', this.value)" style="width:100%; padding:4px; border:1px solid #B7C2CE; border-radius:4px;">${opcionesJefeHtml(f.area_id, f.cargo_id, f.jefe_cargo_id)}</select></td>
                 <td><button class="peligro" onclick="quitarCargoOrganigrama(${f.area_id}, ${f.cargo_id})">Quitar</button></td>
               </tr>`).join('')}
