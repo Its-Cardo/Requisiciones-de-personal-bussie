@@ -9024,6 +9024,13 @@ var supabase = function(e) {
           <div class="desc">Solo visible para Developer</div>
         </div>
       </div>
+      <div class="inicio-boton solo-developer hidden" id="botonOrganigrama" onclick="mostrarSeccionOrganigrama()">
+        <div class="icono">🗂️</div>
+        <div class="texto">
+          <div class="titulo">Organigrama</div>
+          <div class="desc">Cargos de cada área, nivel y jefe inmediato. Solo visible para Developer</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -9069,6 +9076,31 @@ var supabase = function(e) {
           <button class="secundario" onclick="cerrarModalCancelar()">Volver</button>
           <button id="btnConfirmarCancelar" class="peligro" style="padding:8px 14px; font-size:14px;" onclick="confirmarCancelacion()">Cancelar requisición</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECCIÓN: ORGANIGRAMA (solo Developer) ============ -->
+  <div id="seccionOrganigrama" class="hidden">
+    <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
+    <div class="section-title">Organigrama</div>
+    <p style="color:#64748b; font-size:13px; margin-top:-8px;">
+      Cargos de cada área con su nivel jerárquico y el cargo de su jefe inmediato. El jefe inmediato es el que se sugiere para firma en el formulario. Los cambios se guardan al instante.
+    </p>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+      <label for="selectAreaOrganigrama" style="font-size:14px;">Área:</label>
+      <select id="selectAreaOrganigrama" onchange="dibujarOrganigrama()" style="padding:6px 10px; border:1px solid #B7C2CE; border-radius:4px; font-size:14px;"></select>
+      <span id="mensajeOrganigrama" style="font-size:13px;"></span>
+    </div>
+    <div id="tablaOrganigrama"><div class="cargando">Cargando organigrama...</div></div>
+
+    <div style="margin-top:18px; padding:14px; border:1px dashed #B7C2CE; border-radius:8px;">
+      <div style="font-weight:600; font-size:14px; margin-bottom:10px; color:#10243E;">Agregar un cargo a esta área</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <select id="nuevoCargoOrganigrama" style="flex:2; min-width:220px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
+        <select id="nuevoNivelOrganigrama" style="flex:0 0 110px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
+        <select id="nuevoJefeOrganigrama" style="flex:2; min-width:220px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
+        <button class="acento" onclick="agregarCargoOrganigrama()">Agregar</button>
       </div>
     </div>
   </div>
@@ -9197,6 +9229,7 @@ var supabase = function(e) {
     document.getElementById('btnVistaMias').className = 'secundario';
     document.getElementById('iframeRequisicion').src = 'about:blank';
     document.getElementById('iframeDetalleRequisicion').src = 'about:blank';
+    document.getElementById('selectAreaOrganigrama').innerHTML = '';
     document.getElementById('vistaApp').classList.add('hidden');
     document.getElementById('vistaLogin').classList.remove('hidden');
     document.getElementById('loginPassword').value = '';
@@ -9234,6 +9267,7 @@ var supabase = function(e) {
     document.getElementById('rolesUsuarioActual').textContent = nombresRoles.length ? nombresRoles.join(', ') : 'Sin roles asignados';
 
     document.getElementById('botonAsignarRoles').classList.toggle('hidden', !puedeGestionarRoles);
+    document.getElementById('botonOrganigrama').classList.toggle('hidden', !puedeGestionarRoles);
     document.getElementById('descVerRequisiciones').textContent = puedeVerTodasLasAreas
       ? 'Consulta el estado de las requisiciones, filtrando por área'
       : 'Consulta el estado de las requisiciones de tu área';
@@ -9269,7 +9303,7 @@ var supabase = function(e) {
   // ================== NAVEGACIÓN ENTRE SECCIONES ==================
 
   function ocultarTodasLasSecciones() {
-    ['seccionInicio', 'seccionCrearRequisicion', 'seccionVerRequisiciones', 'seccionDetalleRequisicion', 'seccionAreas'].forEach(id => {
+    ['seccionInicio', 'seccionCrearRequisicion', 'seccionVerRequisiciones', 'seccionDetalleRequisicion', 'seccionAreas', 'seccionOrganigrama'].forEach(id => {
       document.getElementById(id).classList.add('hidden');
     });
   }
@@ -9634,6 +9668,143 @@ var supabase = function(e) {
         <tbody>${filasHtml}</tbody>
       </table>
     `;
+  }
+
+  // ================== ORGANIGRAMA (solo Developer) ==================
+  const NIVELES_JERARQUICOS = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15'];
+  const CARGO_DIRECTOR_OPERACIONES = 'DIRECTOR DE OPERACIONES';
+  let organigramaCargos = [];  // [{id, nombre}]
+  let organigramaFilas = [];   // [{area_id, cargo_id, nivel, jefe_cargo_id}]
+
+  async function mostrarSeccionOrganigrama() {
+    ocultarTodasLasSecciones();
+    document.getElementById('seccionOrganigrama').classList.remove('hidden');
+    document.getElementById('tablaOrganigrama').innerHTML = '<div class="cargando">Cargando organigrama...</div>';
+    if (!catalogoAreas.length) await cargarCatalogoAreas();
+
+    const selectArea = document.getElementById('selectAreaOrganigrama');
+    if (!selectArea.options.length) {
+      [...catalogoAreas].sort((x, y) => x.nombre.localeCompare(y.nombre, 'es'))
+        .forEach(a => selectArea.appendChild(new Option(a.nombre, a.id)));
+    }
+    await cargarDatosOrganigrama();
+    dibujarOrganigrama();
+  }
+
+  async function cargarDatosOrganigrama() {
+    const [cargos, filas] = await Promise.all([
+      sb.from('cargos').select('id, nombre').order('nombre'),
+      sb.from('organigrama').select('area_id, cargo_id, nivel, jefe_cargo_id')
+    ]);
+    if (cargos.error || filas.error) {
+      mostrarMensajeOrganigrama('No se pudo cargar el organigrama: ' + (cargos.error || filas.error).message, true);
+      return;
+    }
+    organigramaCargos = cargos.data;
+    organigramaFilas = filas.data;
+  }
+
+  const nombreCargoOrg = (id) => organigramaCargos.find(c => c.id === id)?.nombre || '—';
+
+  function mostrarMensajeOrganigrama(texto, esError) {
+    const el = document.getElementById('mensajeOrganigrama');
+    el.textContent = texto;
+    el.style.color = esError ? '#b91c1c' : '#15803d';
+    if (!esError) setTimeout(() => { if (el.textContent === texto) el.textContent = ''; }, 2500);
+  }
+
+  // Opciones de jefe: cargos del área (menos el propio) + Director de Operaciones (+ el actual si viene de otra parte)
+  function opcionesJefeHtml(areaId, cargoIdPropio, jefeActual) {
+    const ids = organigramaFilas.filter(f => f.area_id === areaId && f.cargo_id !== cargoIdPropio).map(f => f.cargo_id);
+    const director = organigramaCargos.find(c => c.nombre === CARGO_DIRECTOR_OPERACIONES);
+    if (director) ids.push(director.id);
+    if (jefeActual && !ids.includes(jefeActual)) ids.push(jefeActual);
+    const unicos = [...new Set(ids)].sort((x, y) => nombreCargoOrg(x).localeCompare(nombreCargoOrg(y), 'es'));
+    return '<option value="">— Sin jefe —</option>' + unicos.map(id =>
+      `<option value="${id}" ${id === jefeActual ? 'selected' : ''}>${escaparHtml(nombreCargoOrg(id))}</option>`).join('');
+  }
+
+  function opcionesNivelHtml(nivelActual) {
+    return '<option value="">—</option>' + NIVELES_JERARQUICOS.map(n =>
+      `<option value="${n}" ${n === nivelActual ? 'selected' : ''}>${n}</option>`).join('');
+  }
+
+  function dibujarOrganigrama() {
+    const areaId = Number(document.getElementById('selectAreaOrganigrama').value);
+    const filas = organigramaFilas.filter(f => f.area_id === areaId)
+      .sort((x, y) => (x.nivel || '99').localeCompare(y.nivel || '99') || nombreCargoOrg(x.cargo_id).localeCompare(nombreCargoOrg(y.cargo_id), 'es'));
+    const cont = document.getElementById('tablaOrganigrama');
+
+    if (!filas.length) {
+      cont.innerHTML = '<p class="sin-roles">Esta área no tiene cargos todavía.</p>';
+    } else {
+      cont.innerHTML = `
+        <div style="overflow-x:auto;">
+        <table class="tabla-requisiciones">
+          <thead><tr><th>Cargo</th><th style="width:90px;">Nivel</th><th>Jefe inmediato</th><th style="width:80px;"></th></tr></thead>
+          <tbody>
+            ${filas.map(f => `
+              <tr>
+                <td>${escaparHtml(nombreCargoOrg(f.cargo_id))}</td>
+                <td><select onchange="actualizarFilaOrganigrama(${f.area_id}, ${f.cargo_id}, 'nivel', this.value)" style="padding:4px; border:1px solid #B7C2CE; border-radius:4px;">${opcionesNivelHtml(f.nivel)}</select></td>
+                <td><select onchange="actualizarFilaOrganigrama(${f.area_id}, ${f.cargo_id}, 'jefe_cargo_id', this.value)" style="width:100%; padding:4px; border:1px solid #B7C2CE; border-radius:4px;">${opcionesJefeHtml(f.area_id, f.cargo_id, f.jefe_cargo_id)}</select></td>
+                <td><button class="peligro" onclick="quitarCargoOrganigrama(${f.area_id}, ${f.cargo_id})">Quitar</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+        </div>`;
+    }
+
+    // Formulario para agregar: cargos que aún no están en esta área
+    const enArea = new Set(filas.map(f => f.cargo_id));
+    document.getElementById('nuevoCargoOrganigrama').innerHTML = '<option value="">Seleccione el cargo...</option>' +
+      organigramaCargos.filter(c => !enArea.has(c.id)).map(c => `<option value="${c.id}">${escaparHtml(c.nombre)}</option>`).join('');
+    document.getElementById('nuevoNivelOrganigrama').innerHTML = opcionesNivelHtml('').replace('>—<', '>Nivel<');
+    document.getElementById('nuevoJefeOrganigrama').innerHTML = opcionesJefeHtml(areaId, null, null).replace('— Sin jefe —', 'Jefe inmediato...');
+  }
+
+  async function actualizarFilaOrganigrama(areaId, cargoId, campo, valor) {
+    const nuevo = campo === 'jefe_cargo_id' ? (valor ? Number(valor) : null) : (valor || null);
+    const { error } = await sb.from('organigrama').update({ [campo]: nuevo }).eq('area_id', areaId).eq('cargo_id', cargoId);
+    if (error) {
+      mostrarMensajeOrganigrama('No se pudo guardar: ' + error.message, true);
+      await cargarDatosOrganigrama();
+      dibujarOrganigrama();
+      return;
+    }
+    const fila = organigramaFilas.find(f => f.area_id === areaId && f.cargo_id === cargoId);
+    if (fila) fila[campo] = nuevo;
+    mostrarMensajeOrganigrama('Guardado ✓');
+    if (campo === 'nivel') dibujarOrganigrama(); // reordenar por nivel
+  }
+
+  async function quitarCargoOrganigrama(areaId, cargoId) {
+    const nombre = nombreCargoOrg(cargoId);
+    const dependientes = organigramaFilas.filter(f => f.area_id === areaId && f.jefe_cargo_id === cargoId).map(f => nombreCargoOrg(f.cargo_id));
+    if (dependientes.length) {
+      alert(`No se puede quitar ${nombre} porque es el jefe inmediato de: ${dependientes.join(', ')}.\n\nPrimero cámbiales el jefe inmediato.`);
+      return;
+    }
+    if (!confirm(`¿Quitar ${nombre} de esta área?\n\nYa no aparecerá en la lista de cargos del formulario para esta área.`)) return;
+    const { error } = await sb.from('organigrama').delete().eq('area_id', areaId).eq('cargo_id', cargoId);
+    if (error) { mostrarMensajeOrganigrama('No se pudo quitar: ' + error.message, true); return; }
+    organigramaFilas = organigramaFilas.filter(f => !(f.area_id === areaId && f.cargo_id === cargoId));
+    mostrarMensajeOrganigrama('Cargo quitado ✓');
+    dibujarOrganigrama();
+  }
+
+  async function agregarCargoOrganigrama() {
+    const areaId = Number(document.getElementById('selectAreaOrganigrama').value);
+    const cargoId = Number(document.getElementById('nuevoCargoOrganigrama').value);
+    const nivel = document.getElementById('nuevoNivelOrganigrama').value || null;
+    const jefe = document.getElementById('nuevoJefeOrganigrama').value;
+    if (!cargoId) { mostrarMensajeOrganigrama('Seleccione el cargo que quiere agregar.', true); return; }
+    const fila = { area_id: areaId, cargo_id: cargoId, nivel, jefe_cargo_id: jefe ? Number(jefe) : null };
+    const { error } = await sb.from('organigrama').insert(fila);
+    if (error) { mostrarMensajeOrganigrama('No se pudo agregar: ' + error.message, true); return; }
+    organigramaFilas.push(fila);
+    mostrarMensajeOrganigrama('Cargo agregado ✓');
+    dibujarOrganigrama();
   }
 
   // ---- Vista: requisiciones del área o solo las mías ----
