@@ -22342,7 +22342,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
       const { data: perfil, error: errorPerfil } = await supabaseClient
         .from('usuarios')
-        .select('id, nombre_completo')
+        .select('id, nombre_completo, area_id, usuario_roles(roles(nombre))')
         .eq('id', session.user.id)
         .single();
 
@@ -22362,6 +22362,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const idVer = new URLSearchParams(window.location.search).get('ver');
       if (idVer) {
         await cargarModoLectura(idVer);
+        return;
+      }
+
+      // Solo el Developer puede elegir cualquier área; los demás, únicamente la suya
+      if (!fijarAreaDelUsuario()) {
+        const contenedor = document.getElementById('form-container');
+        document.getElementById('reqForm').style.display = 'none';
+        contenedor.querySelector('h1 + p').textContent = 'No tienes un área asignada, por eso no puedes crear requisiciones. Contacta al administrador para que te asigne un área.';
+        contenedor.querySelector('h1 + p').style.color = '#b91c1c';
+        contenedor.style.display = 'block';
         return;
       }
 
@@ -22889,6 +22899,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.getElementById('grupo_duracion').style.display = 'none';
     document.getElementById('resultado-generacion').textContent = '';
     ultimaRequisicionGenerada = null;
+    fijarAreaDelUsuario();
     reiniciarCargoYCentroCosto();
 
     // Volver a poner la fecha de solicitud de hoy (se borra con el reset del formulario)
@@ -23088,6 +23099,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     centros.forEach(c => select.appendChild(new Option(c, c)));
     if (centros.length === 1) select.value = centros[0];
     else if (centros.includes(anterior)) select.value = anterior;
+  }
+
+  // Fija el área del usuario en el formulario (bloqueada), salvo para Developer.
+  // Devuelve false si el usuario no es Developer y no tiene un área asignada.
+  function fijarAreaDelUsuario() {
+    const roles = (usuarioActual?.usuario_roles || []).map(r => r.roles?.nombre);
+    if (roles.includes('Developer')) return true;
+    const area = catalogo.areas.find(a => a.id === usuarioActual?.area_id);
+    if (!area) return false;
+    const select = document.getElementById('area');
+    select.value = area.nombre;
+    select.disabled = true;
+    select.style.backgroundColor = '#f1f5f9';
+    select.style.cursor = 'not-allowed';
+    actualizarCentrosCosto();
+    return true;
   }
 
   // Al cambiar de área (o limpiar el formulario) se reinician el cargo y el centro de costo
