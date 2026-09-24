@@ -8952,7 +8952,11 @@ var supabase = function(e) {
     .pill-generada { background: #DBEAFE; color: #1D4ED8; }
     .pill-pendiente_firmas, .pill-pendiente_dg { background: #FEF3C7; color: #92400E; }
     .pill-aprobada { background: #DCFCE7; color: #15803D; }
-    .pill-rechazada, .pill-cancelada { background: #F1F5F9; color: #64748B; }
+    .pill-rechazada { background: #F1F5F9; color: #64748B; }
+    .pill-cancelada { background: #FDE2E1; color: #B3402F; }
+    .fondo-modal { position: fixed; inset: 0; background: rgba(16,36,62,0.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+    .caja-modal { background: #fff; border-radius: 10px; padding: 22px; width: 100%; max-width: 460px; box-shadow: 0 10px 30px rgba(16,36,62,0.25); }
+    .caja-modal textarea { width: 100%; min-height: 90px; padding: 8px; border: 1px solid #B7C2CE; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 14px; }
 
     /* Crear usuario (solo Developer) */
     .cabecera-areas { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
@@ -9047,7 +9051,26 @@ var supabase = function(e) {
       </select>
     </div>
 
+    <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+      <button id="btnVistaArea" class="acento" onclick="cambiarVistaRequisiciones('area')">Requisiciones del área</button>
+      <button id="btnVistaMias" class="secundario" onclick="cambiarVistaRequisiciones('mias')">Mis requisiciones</button>
+    </div>
+
     <div id="listaRequisiciones"><div class="cargando">Cargando requisiciones...</div></div>
+
+    <!-- Ventana para cancelar una requisición -->
+    <div id="modalCancelar" class="fondo-modal hidden">
+      <div class="caja-modal">
+        <div class="section-title" style="margin-top:0;">Cancelar requisición <span id="modalCancelarNumero"></span></div>
+        <label for="motivoCancelacion" style="display:block; font-size:14px; margin-bottom:6px;">Motivo de la cancelación (obligatorio):</label>
+        <textarea id="motivoCancelacion"></textarea>
+        <div id="modalCancelarMensaje" style="font-size:13px; margin-top:8px; color:#b91c1c;"></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
+          <button class="secundario" onclick="cerrarModalCancelar()">Volver</button>
+          <button id="btnConfirmarCancelar" class="peligro" style="padding:8px 14px; font-size:14px;" onclick="confirmarCancelacion()">Cancelar requisición</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ============ SECCIÓN: DETALLE DE REQUISICIÓN (solo lectura) ============ -->
@@ -9155,6 +9178,9 @@ var supabase = function(e) {
     puedeGestionarRoles = false;
     puedeVerTodasLasAreas = false;
     iframeRequisicionCargado = false;
+    vistaRequisiciones = 'area';
+    document.getElementById('btnVistaArea').className = 'acento';
+    document.getElementById('btnVistaMias').className = 'secundario';
     document.getElementById('iframeRequisicion').src = 'about:blank';
     document.getElementById('iframeDetalleRequisicion').src = 'about:blank';
     document.getElementById('vistaApp').classList.add('hidden');
@@ -9527,7 +9553,7 @@ var supabase = function(e) {
     // Este select trae, además, el área de quien creó cada requisición para mostrarla y, si aplica, filtrarla.
     let consulta = sb
       .from('requisiciones')
-      .select('id, numero_consecutivo, anio, estado, tipo_requisicion, nombre_solicitante, creado_en, datos_formulario, usuarios(area_id, areas(nombre))')
+      .select('id, numero_consecutivo, anio, estado, tipo_requisicion, nombre_solicitante, creado_en, creado_por, datos_formulario, usuarios(area_id, areas(nombre))')
       .order('creado_en', { ascending: false });
 
     const { data, error } = await consulta;
@@ -9547,6 +9573,10 @@ var supabase = function(e) {
       }
     }
 
+    if (vistaRequisiciones === 'mias') {
+      filas = filas.filter(r => r.creado_por === usuarioActual?.id);
+    }
+
     if (!filas.length) {
       cont.innerHTML = '<p class="sin-roles">No hay requisiciones para mostrar.</p>';
       return;
@@ -9561,7 +9591,10 @@ var supabase = function(e) {
         <td>${escaparHtml(r.datos_formulario?.area || '—')}</td>
         <td><span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span></td>
         <td>${formatearFecha(r.creado_en)}</td>
-        <td><button class="secundario" style="padding:4px 12px; font-size:12px;" onclick="verRequisicion('${escaparHtml(String(r.id))}')">Ver</button></td>
+        <td style="white-space:nowrap;">
+          <button class="secundario" style="padding:4px 12px; font-size:12px;" onclick="verRequisicion('${escaparHtml(String(r.id))}')">Ver</button>
+          ${puedeCancelar(r) ? `<button class="peligro" style="margin-left:6px;" onclick="abrirModalCancelar('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">Cancelar</button>` : ''}
+        </td>
       </tr>
     `).join('');
 
@@ -9582,6 +9615,61 @@ var supabase = function(e) {
         <tbody>${filasHtml}</tbody>
       </table>
     `;
+  }
+
+  // ---- Vista: requisiciones del área o solo las mías ----
+  let vistaRequisiciones = 'area';
+
+  function cambiarVistaRequisiciones(vista) {
+    vistaRequisiciones = vista;
+    document.getElementById('btnVistaArea').className = vista === 'area' ? 'acento' : 'secundario';
+    document.getElementById('btnVistaMias').className = vista === 'mias' ? 'acento' : 'secundario';
+    cargarRequisiciones();
+  }
+
+  // ---- Cancelar: solo quien la creó, o un Developer (Supabase también lo verifica) ----
+  let requisicionACancelar = null;
+
+  function puedeCancelar(r) {
+    if (r.estado === 'cancelada') return false;
+    return r.creado_por === usuarioActual?.id || puedeGestionarRoles;
+  }
+
+  function abrirModalCancelar(id, numero) {
+    requisicionACancelar = id;
+    document.getElementById('modalCancelarNumero').textContent = numero;
+    document.getElementById('motivoCancelacion').value = '';
+    document.getElementById('modalCancelarMensaje').textContent = '';
+    document.getElementById('btnConfirmarCancelar').disabled = false;
+    document.getElementById('modalCancelar').classList.remove('hidden');
+    document.getElementById('motivoCancelacion').focus();
+  }
+
+  function cerrarModalCancelar() {
+    requisicionACancelar = null;
+    document.getElementById('modalCancelar').classList.add('hidden');
+  }
+
+  async function confirmarCancelacion() {
+    const motivo = document.getElementById('motivoCancelacion').value.trim();
+    const mensaje = document.getElementById('modalCancelarMensaje');
+    if (!motivo) {
+      mensaje.textContent = 'Debes escribir el motivo de la cancelación.';
+      return;
+    }
+    const boton = document.getElementById('btnConfirmarCancelar');
+    boton.disabled = true;
+    const { error } = await sb.rpc('cancelar_requisicion_por_id', {
+      p_id: requisicionACancelar,
+      p_motivo_cancelacion: motivo
+    });
+    if (error) {
+      mensaje.textContent = 'No se pudo cancelar: ' + error.message;
+      boton.disabled = false;
+      return;
+    }
+    cerrarModalCancelar();
+    cargarRequisiciones();
   }
 
   // Abre la requisición elegida en el formulario, en modo solo lectura
