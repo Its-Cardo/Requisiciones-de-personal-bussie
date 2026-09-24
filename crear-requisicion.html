@@ -22351,6 +22351,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       usuarioActual = perfil;
       document.getElementById('nombre_solicitante').value = perfil.nombre_completo;
 
+      // Cargar las listas del formulario (áreas, cargos, centros de costo y opciones) desde Supabase
+      const catalogosOk = await cargarCatalogos();
+      if (!catalogosOk) {
+        alert('No se pudieron cargar las listas del formulario. Recarga la página e intenta de nuevo.');
+        return;
+      }
+
       // Si la página se abre desde "Ver requisiciones" (?ver=ID), se muestra en modo solo lectura
       const idVer = new URLSearchParams(window.location.search).get('ver');
       if (idVer) {
@@ -22387,20 +22394,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <label>Compañía:</label>
         <select id="compania" required>
           <option value="" disabled selected>Seleccione una compañía...</option>
-          <option value="Bussié">Bussié</option>
-          <option value="Labinco">Labinco</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Nombre del Cargo:</label>
-        <input type="text" id="nombre_cargo" required oninput="soloLetras(this)">
+        <label>Área:</label>
+        <select id="area" required>
+          <option value="" disabled selected>Seleccione un área...</option>
+        </select>
       </div>
     </div>
     
     <div class="grid-2">
-      <div class="form-group">
-        <label>Área:</label>
-        <input type="text" id="area" required oninput="soloLetras(this)">
+      <div class="form-group" style="position:relative;">
+        <label>Nombre del Cargo:</label>
+        <input type="text" id="nombre_cargo" required oninput="soloLetras(this)" autocomplete="off" placeholder="Escriba para buscar un cargo...">
+        <div id="lista_cargos" class="lista-sugerencias" style="display:none;"></div>
+        <div id="aviso_cargo_libre" style="display:none; font-size:12px; color:#64748b; margin-top:4px;">
+          Escribiendo un cargo no existente. <button type="button" class="link-toggle" style="font-size:12px; padding:0;" onclick="volverAListaDeCargos()">Elegir de la lista</button>
+        </div>
       </div>
       <div class="form-group">
         <label>Dirección:</label>
@@ -22408,7 +22419,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       </div>
       <div class="form-group">
         <label>Centro de Costo:</label>
-        <input type="text" id="centro_costo" oninput="soloNumeros(this)">
+        <select id="centro_costo">
+          <option value="" selected>Seleccione un centro de costo...</option>
+        </select>
       </div>
       <div class="form-group">
         <label>Ciudad:</label>
@@ -22423,40 +22436,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <label>Tipo de Requisición:</label>
         <select id="tipo_requisicion" required>
           <option value="" disabled selected>Seleccione un tipo...</option>
-          <option value="Cargo nuevo">Cargo nuevo</option>
-          <option value="Posición adicional">Posición adicional</option>
-          <option value="Ascenso">Ascenso</option>
-          <option value="Traslado">Traslado</option>
-          <option value="Cuota SENA">Cuota SENA</option>
-          <option value="Reemplazo">Reemplazo</option>
-          <option value="Encargo Temporal">Encargo temporal</option>
-          <option value="Cambio nombre del cargo">Cambio nombre del cargo</option>
-          <option value="Incremento salarial">Incremento salarial</option>
-          <option value="Cambio de tipo de contrato">Cambio de tipo de contrato</option>
-          <option value="Extensión de contrato">Extensión de contrato</option>
         </select>
       </div>
       <div class="form-group">
         <label>Motivo de la Vacante:</label>
         <select id="motivo_vacante" required>
           <option value="" disabled selected>Seleccione un motivo...</option>
-          <option value="Renuncia del titular">Renuncia del titular</option>
-          <option value="Incapacidad o licencia">Incapacidad o licencia</option>
-          <option value="Terminación de contrato">Terminación de contrato</option>
-          <option value="Promoción o Traslado">Promoción o Traslado</option>
-          <option value="Jubilación">Jubilación</option>
-          <option value="Incremento de labores">Incremento de labores</option>
-          <option value="No aplica">No aplica</option>
         </select>
       </div>
       <div class="form-group">
         <label>Tipo de Contrato:</label>
         <select id="tipo_contrato" required onchange="toggleDuracion(this.value)">
           <option value="" disabled selected>Seleccione un tipo...</option>
-          <option value="Indefinido">Indefinido</option>
-          <option value="Termino fijo">Termino fijo</option>
-          <option value="Temporal">Temporal</option>
-          <option value="Aprendizaje">Aprendizaje</option>
         </select>
       </div>
     </div>
@@ -22802,7 +22793,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     requisicionEnConsulta = req;
     const d = req.datos_formulario || {};
-    const poner = (idCampo, valor) => { document.getElementById(idCampo).value = valor ?? ''; };
+    const poner = (idCampo, valor) => {
+      const el = document.getElementById(idCampo);
+      if (el.tagName === 'SELECT' && valor && ![...el.options].some(o => o.value === valor)) {
+        el.appendChild(new Option(valor, valor));
+      }
+      el.value = valor ?? '';
+    };
 
     poner('nombre_solicitante', req.nombre_solicitante);
     poner('fecha_solicitud', d.fecha_solicitud);
@@ -22912,6 +22909,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.getElementById('grupo_duracion').style.display = 'none';
     document.getElementById('resultado-generacion').textContent = '';
     ultimaRequisicionGenerada = null;
+    reiniciarCargoYCentroCosto();
 
     // Volver a poner la fecha de solicitud de hoy (se borra con el reset del formulario)
     const hoy = new Date();
@@ -22922,6 +22920,208 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 </script>
 
+
+<style>
+  /* Lista de sugerencias del campo Nombre del Cargo */
+  .lista-sugerencias { position: absolute; left: 0; right: 0; z-index: 20; max-height: 240px; overflow-y: auto;
+    background: #fff; border: 1px solid #B7C2CE; border-radius: 4px; box-shadow: 0 4px 12px rgba(16,36,62,0.12); margin-top: 2px; }
+  .lista-sugerencias .opcion { padding: 7px 10px; font-size: 14px; cursor: pointer; color: #10243E; }
+  .lista-sugerencias .opcion.activa, .lista-sugerencias .opcion:hover { background: #E6F6F5; }
+  .lista-sugerencias .opcion.no-existente { border-top: 1px solid #DCE3EA; color: #1CA7A0; font-weight: 600; }
+  .lista-sugerencias .sin-resultados { padding: 7px 10px; font-size: 13px; color: #64748b; }
+</style>
+<script>
+  // ================== LISTAS DEL FORMULARIO (vienen de Supabase) ==================
+  const OPCION_CARGO_NO_EXISTENTE = 'Cargo no existente';
+  let catalogo = { areas: [], centrosCosto: [], cargos: [], cargoCentroCosto: [] };
+  let modoCargoLibre = false; // true cuando se eligió "Cargo no existente"
+  let indiceSugerenciaActiva = -1;
+
+  // Quita tildes y pasa a mayúsculas para comparar sin importar cómo se escriba
+  const normalizar = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+
+  async function cargarCatalogos() {
+    const [areas, centros, cargos, relacion, opciones] = await Promise.all([
+      supabaseClient.from('areas').select('id, nombre'),
+      supabaseClient.from('centros_costo').select('codigo, area_id').eq('activo', true),
+      supabaseClient.from('cargos').select('id, nombre').eq('activo', true),
+      supabaseClient.from('cargo_centro_costo').select('cargo_id, centro_costo'),
+      supabaseClient.from('opciones_formulario').select('campo, valor, etiqueta, orden').eq('activo', true).order('orden')
+    ]);
+    if (areas.error || centros.error || cargos.error || relacion.error || opciones.error) return false;
+
+    catalogo = {
+      areas: areas.data.sort((x, y) => x.nombre.localeCompare(y.nombre, 'es')),
+      centrosCosto: centros.data,
+      cargos: cargos.data,
+      cargoCentroCosto: relacion.data
+    };
+
+    // Listas simples: compañía, tipo de requisición, motivo y tipo de contrato
+    opciones.data.forEach(o => {
+      const select = document.getElementById(o.campo);
+      if (select) select.appendChild(new Option(o.etiqueta, o.valor));
+    });
+
+    const selectArea = document.getElementById('area');
+    catalogo.areas.forEach(a => selectArea.appendChild(new Option(a.nombre, a.nombre)));
+    selectArea.addEventListener('change', reiniciarCargoYCentroCosto);
+
+    const inputCargo = document.getElementById('nombre_cargo');
+    inputCargo.addEventListener('focus', () => { if (!modoCargoLibre) mostrarSugerenciasCargo(); });
+    inputCargo.addEventListener('input', () => {
+      if (modoCargoLibre) { inputCargo.setCustomValidity(''); return; }
+      mostrarSugerenciasCargo();
+      validarCargo();
+    });
+    inputCargo.addEventListener('keydown', manejarTeclasCargo);
+    inputCargo.addEventListener('blur', () => {
+      setTimeout(() => { document.getElementById('lista_cargos').style.display = 'none'; }, 150);
+      if (!modoCargoLibre) validarCargo();
+    });
+
+    actualizarCentrosCosto();
+    return true;
+  }
+
+  function areaSeleccionada() {
+    const nombre = document.getElementById('area').value;
+    return catalogo.areas.find(a => a.nombre === nombre) || null;
+  }
+
+  // Centros de costo del área elegida
+  function centrosDelArea() {
+    const area = areaSeleccionada();
+    if (!area) return [];
+    return catalogo.centrosCosto.filter(c => c.area_id === area.id).map(c => c.codigo).sort();
+  }
+
+  // Cargos que existen en algún centro de costo del área elegida
+  function cargosDelArea() {
+    const centros = new Set(centrosDelArea());
+    const ids = new Set(catalogo.cargoCentroCosto.filter(r => centros.has(r.centro_costo)).map(r => r.cargo_id));
+    return catalogo.cargos.filter(c => ids.has(c.id)).sort((x, y) => x.nombre.localeCompare(y.nombre, 'es'));
+  }
+
+  function cargoElegido() {
+    const valor = normalizar(document.getElementById('nombre_cargo').value);
+    return cargosDelArea().find(c => normalizar(c.nombre) === valor) || null;
+  }
+
+  function mostrarSugerenciasCargo() {
+    const lista = document.getElementById('lista_cargos');
+    const texto = normalizar(document.getElementById('nombre_cargo').value);
+    lista.innerHTML = '';
+    indiceSugerenciaActiva = -1;
+
+    if (!areaSeleccionada()) {
+      lista.innerHTML = '<div class="sin-resultados">Primero seleccione un área.</div>';
+      lista.style.display = 'block';
+      return;
+    }
+
+    const coincidencias = cargosDelArea().filter(c => normalizar(c.nombre).includes(texto));
+    if (coincidencias.length === 0) {
+      lista.innerHTML = '<div class="sin-resultados">No hay cargos que coincidan en esta área.</div>';
+    }
+    coincidencias.forEach(c => lista.appendChild(crearOpcionCargo(c.nombre, () => elegirCargo(c.nombre))));
+    lista.appendChild(crearOpcionCargo('➕ ' + OPCION_CARGO_NO_EXISTENTE, activarCargoLibre, 'no-existente'));
+    lista.style.display = 'block';
+  }
+
+  function crearOpcionCargo(texto, alElegir, claseExtra) {
+    const div = document.createElement('div');
+    div.className = 'opcion' + (claseExtra ? ' ' + claseExtra : '');
+    div.textContent = texto;
+    div.addEventListener('mousedown', (e) => { e.preventDefault(); alElegir(); });
+    return div;
+  }
+
+  function manejarTeclasCargo(e) {
+    const lista = document.getElementById('lista_cargos');
+    const opciones = [...lista.querySelectorAll('.opcion')];
+    if (modoCargoLibre || lista.style.display === 'none' || opciones.length === 0) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      indiceSugerenciaActiva += e.key === 'ArrowDown' ? 1 : -1;
+      indiceSugerenciaActiva = Math.max(0, Math.min(opciones.length - 1, indiceSugerenciaActiva));
+      opciones.forEach((o, i) => o.classList.toggle('activa', i === indiceSugerenciaActiva));
+      opciones[indiceSugerenciaActiva].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && indiceSugerenciaActiva >= 0) {
+      e.preventDefault();
+      opciones[indiceSugerenciaActiva].dispatchEvent(new MouseEvent('mousedown'));
+    } else if (e.key === 'Escape') {
+      lista.style.display = 'none';
+    }
+  }
+
+  function elegirCargo(nombre) {
+    const input = document.getElementById('nombre_cargo');
+    input.value = nombre;
+    input.setCustomValidity('');
+    document.getElementById('lista_cargos').style.display = 'none';
+    actualizarCentrosCosto();
+  }
+
+  // Solo se acepta un cargo de la lista (salvo que se haya elegido "Cargo no existente")
+  function validarCargo() {
+    const input = document.getElementById('nombre_cargo');
+    const valido = input.value === '' || cargoElegido() !== null;
+    input.setCustomValidity(valido ? '' : 'Seleccione un cargo de la lista, o elija "Cargo no existente".');
+    actualizarCentrosCosto();
+  }
+
+  function activarCargoLibre() {
+    modoCargoLibre = true;
+    const input = document.getElementById('nombre_cargo');
+    input.value = '';
+    input.setCustomValidity('');
+    input.placeholder = 'Escriba el nombre del cargo...';
+    document.getElementById('lista_cargos').style.display = 'none';
+    document.getElementById('aviso_cargo_libre').style.display = 'block';
+    actualizarCentrosCosto();
+    input.focus();
+  }
+
+  function volverAListaDeCargos() {
+    modoCargoLibre = false;
+    const input = document.getElementById('nombre_cargo');
+    input.value = '';
+    input.placeholder = 'Escriba para buscar un cargo...';
+    document.getElementById('aviso_cargo_libre').style.display = 'none';
+    actualizarCentrosCosto();
+    input.focus();
+  }
+
+  // Centro de costo: los del área y cargo elegidos (todos los del área si no hay cargo o es un cargo no existente)
+  function actualizarCentrosCosto() {
+    const select = document.getElementById('centro_costo');
+    const anterior = select.value;
+    let centros = centrosDelArea();
+    const cargo = modoCargoLibre ? null : cargoElegido();
+    if (cargo) {
+      const delCargo = new Set(catalogo.cargoCentroCosto.filter(r => r.cargo_id === cargo.id).map(r => r.centro_costo));
+      centros = centros.filter(c => delCargo.has(c));
+    }
+    select.innerHTML = '';
+    select.appendChild(new Option('Seleccione un centro de costo...', ''));
+    centros.forEach(c => select.appendChild(new Option(c, c)));
+    if (centros.length === 1) select.value = centros[0];
+    else if (centros.includes(anterior)) select.value = anterior;
+  }
+
+  // Al cambiar de área (o limpiar el formulario) se reinician el cargo y el centro de costo
+  function reiniciarCargoYCentroCosto() {
+    modoCargoLibre = false;
+    const input = document.getElementById('nombre_cargo');
+    input.value = '';
+    input.setCustomValidity('');
+    input.placeholder = 'Escriba para buscar un cargo...';
+    document.getElementById('aviso_cargo_libre').style.display = 'none';
+    document.getElementById('lista_cargos').style.display = 'none';
+    actualizarCentrosCosto();
+  }
+</script>
 
 <!-- Vista de impresión: aquí se dibuja el .docx REAL (con docx-preview), solo visible al imprimir -->
 <div id="print-view"></div>
