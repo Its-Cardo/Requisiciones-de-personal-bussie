@@ -9542,7 +9542,8 @@ var supabase = function(e) {
     if (puedeVerTodasLasAreas) {
       const filtro = document.getElementById('selectFiltroArea').value;
       if (filtro !== 'todas') {
-        filas = filas.filter(r => String(r.usuarios?.area_id) === filtro);
+        const nombreAreaFiltro = catalogoAreas.find(a => String(a.id) === filtro)?.nombre;
+        filas = filas.filter(r => (r.datos_formulario?.area || '') === nombreAreaFiltro);
       }
     }
 
@@ -9557,7 +9558,7 @@ var supabase = function(e) {
         <td>${escaparHtml(r.tipo_requisicion || '')}</td>
         <td>${escaparHtml(r.datos_formulario?.nombre_cargo || '—')}</td>
         <td>${escaparHtml(r.nombre_solicitante || '')}</td>
-        <td>${escaparHtml(r.usuarios?.areas?.nombre || '—')}</td>
+        <td>${escaparHtml(r.datos_formulario?.area || '—')}</td>
         <td><span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span></td>
         <td>${formatearFecha(r.creado_en)}</td>
         <td><button class="secundario" style="padding:4px 12px; font-size:12px;" onclick="verRequisicion('${escaparHtml(String(r.id))}')">Ver</button></td>

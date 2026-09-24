@@ -22622,7 +22622,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     mensajeDiv.textContent = `Requisición #${data.numero_consecutivo} del año ${data.anio} cancelada correctamente.`;
   }
 
+  // Evita que un doble clic genere dos requisiciones: el botón se desactiva mientras se procesa
+  let generacionEnCurso = false;
   async function generarDocumento() {
+    if (generacionEnCurso) return;
+    generacionEnCurso = true;
+    const boton = document.querySelector('button[onclick="generarDocumento()"]');
+    const textoOriginal = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = 'Generando...';
+    try {
+      await procesarGeneracionDocumento();
+    } finally {
+      generacionEnCurso = false;
+      boton.disabled = false;
+      boton.textContent = textoOriginal;
+    }
+  }
+
+  async function procesarGeneracionDocumento() {
     const mensajeDiv = document.getElementById('resultado-generacion');
     mensajeDiv.textContent = '';
 
