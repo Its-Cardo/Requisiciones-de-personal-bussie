@@ -22926,7 +22926,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 <script>
   // ================== LISTAS DEL FORMULARIO (vienen de Supabase) ==================
   const OPCION_CARGO_NO_EXISTENTE = 'Cargo no existente';
-  let catalogo = { areas: [], centrosCosto: [], cargos: [], cargoCentroCosto: [] };
+  let catalogo = { areas: [], centrosCosto: [], cargos: [], cargoCentroCosto: [], cargoArea: [] };
   let modoCargoLibre = false; // true cuando se eligió "Cargo no existente"
   let indiceSugerenciaActiva = -1;
 
@@ -22934,20 +22934,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const normalizar = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
 
   async function cargarCatalogos() {
-    const [areas, centros, cargos, relacion, opciones] = await Promise.all([
+    const [areas, centros, cargos, relacion, opciones, cargoArea] = await Promise.all([
       supabaseClient.from('areas').select('id, nombre'),
       supabaseClient.from('centros_costo').select('codigo, area_id').eq('activo', true),
       supabaseClient.from('cargos').select('id, nombre').eq('activo', true),
       supabaseClient.from('cargo_centro_costo').select('cargo_id, centro_costo'),
-      supabaseClient.from('opciones_formulario').select('campo, valor, etiqueta, orden').eq('activo', true).order('orden')
+      supabaseClient.from('opciones_formulario').select('campo, valor, etiqueta, orden').eq('activo', true).order('orden'),
+      supabaseClient.from('cargo_area').select('cargo_id, area_id')
     ]);
-    if (areas.error || centros.error || cargos.error || relacion.error || opciones.error) return false;
+    if (areas.error || centros.error || cargos.error || relacion.error || opciones.error || cargoArea.error) return false;
 
     catalogo = {
       areas: areas.data.sort((x, y) => x.nombre.localeCompare(y.nombre, 'es')),
       centrosCosto: centros.data,
       cargos: cargos.data,
-      cargoCentroCosto: relacion.data
+      cargoCentroCosto: relacion.data,
+      cargoArea: cargoArea.data
     };
 
     // Listas simples: compañía, tipo de requisición, motivo y tipo de contrato
@@ -22997,10 +22999,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return catalogo.centrosCosto.filter(c => c.area_id === area.id).map(c => c.codigo).sort();
   }
 
-  // Cargos que existen en algún centro de costo del área elegida
+  // Cargos asignados al área elegida (tabla cargo_area, independiente del centro de costo)
   function cargosDelArea() {
-    const centros = new Set(centrosDelArea());
-    const ids = new Set(catalogo.cargoCentroCosto.filter(r => centros.has(r.centro_costo)).map(r => r.cargo_id));
+    const area = areaSeleccionada();
+    if (!area) return [];
+    const ids = new Set(catalogo.cargoArea.filter(r => r.area_id === area.id).map(r => r.cargo_id));
     return catalogo.cargos.filter(c => ids.has(c.id)).sort((x, y) => x.nombre.localeCompare(y.nombre, 'es'));
   }
 
@@ -23102,14 +23105,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const OPCION_OTRO_CENTRO_COSTO = '__otro__';
   let centroCostoOtro = null; // centro de costo elegido con "Elegir otro centro de costo"
 
+  // Con cargo elegido: sus centros de costo dentro del área; si en el área no tiene ninguno,
+  // los centros de costo donde existe ese cargo (aunque sean de otra área). Sin cargo: los del área.
   function centrosFiltrados() {
-    let centros = centrosDelArea();
+    const centros = centrosDelArea();
     const cargo = modoCargoLibre ? null : cargoElegido();
-    if (cargo) {
-      const delCargo = new Set(catalogo.cargoCentroCosto.filter(r => r.cargo_id === cargo.id).map(r => r.centro_costo));
-      centros = centros.filter(c => delCargo.has(c));
-    }
-    return centros;
+    if (!cargo) return centros;
+    const delCargo = [...new Set(catalogo.cargoCentroCosto.filter(r => r.cargo_id === cargo.id).map(r => r.centro_costo))].sort();
+    const enArea = centros.filter(c => delCargo.includes(c));
+    return enArea.length ? enArea : delCargo;
   }
 
   let ultimoCargoFiltrado = null; // cargo con el que se filtraron por última vez los centros de costo
