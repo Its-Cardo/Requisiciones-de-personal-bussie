@@ -9147,8 +9147,14 @@ var supabase = function(e) {
           </div>
           <div class="form-group">
             <label>Área:</label>
-            <select id="nuevoUsuarioArea">
+            <select id="nuevoUsuarioArea" onchange="llenarSelectCargoNuevoUsuario()">
               <option value="">Sin área asignada</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Cargo:</label>
+            <select id="nuevoUsuarioCargo">
+              <option value="">Sin cargo asignado</option>
             </select>
           </div>
           <div class="form-group">
@@ -9363,8 +9369,10 @@ var supabase = function(e) {
     cont.innerHTML = '<div class="cargando">Cargando áreas...</div>';
 
     if (!catalogoAreas.length) await cargarCatalogoAreas();
+    if (!organigramaCargos.length) await cargarDatosOrganigrama();
 
     llenarSelectAreaNuevoUsuario();
+    llenarSelectCargoNuevoUsuario();
 
     if (!catalogoAreas.length) {
       cont.innerHTML = '<p class="sin-roles">No hay áreas registradas.</p>';
@@ -9394,6 +9402,28 @@ var supabase = function(e) {
     });
   }
 
+  // Cargos que se pueden asignar a una persona de un área: los del organigrama de esa área + Director de Operaciones
+  // (sin área: todos los cargos). Si la persona ya tiene un cargo fuera de esa lista, también se incluye.
+  function cargosParaArea(areaId, cargoActual) {
+    let ids;
+    if (areaId) {
+      ids = organigramaFilas.filter(f => f.area_id === Number(areaId)).map(f => f.cargo_id);
+      const director = organigramaCargos.find(c => c.nombre === CARGO_DIRECTOR_OPERACIONES);
+      if (director) ids.push(director.id);
+    } else {
+      ids = organigramaCargos.map(c => c.id);
+    }
+    if (cargoActual && !ids.includes(cargoActual)) ids.push(cargoActual);
+    return [...new Set(ids)].sort((x, y) => nombreCargoOrg(x).localeCompare(nombreCargoOrg(y), 'es'));
+  }
+
+  function llenarSelectCargoNuevoUsuario() {
+    const sel = document.getElementById('nuevoUsuarioCargo');
+    const areaId = document.getElementById('nuevoUsuarioArea').value;
+    sel.innerHTML = '<option value="">Sin cargo asignado</option>' +
+      cargosParaArea(areaId, null).map(id => `<option value="${id}">${escaparHtml(nombreCargoOrg(id))}</option>`).join('');
+  }
+
   function toggleFormCrearUsuario() {
     const panel = document.getElementById('panelCrearUsuario');
     const oculto = panel.classList.toggle('hidden');
@@ -9401,6 +9431,7 @@ var supabase = function(e) {
     if (oculto) {
       ['nuevoUsuarioPrimerNombre', 'nuevoUsuarioSegundoNombre', 'nuevoUsuarioPrimerApellido', 'nuevoUsuarioSegundoApellido', 'nuevoUsuarioEmail', 'nuevoUsuarioPassword'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('nuevoUsuarioArea').value = '';
+      llenarSelectCargoNuevoUsuario();
       document.getElementById('crearUsuarioError').textContent = '';
       document.getElementById('crearUsuarioOk').textContent = '';
     }
@@ -9415,6 +9446,7 @@ var supabase = function(e) {
     const email = document.getElementById('nuevoUsuarioEmail').value.trim();
     const password = document.getElementById('nuevoUsuarioPassword').value;
     const area_id = document.getElementById('nuevoUsuarioArea').value || null;
+    const cargo_id = document.getElementById('nuevoUsuarioCargo').value || null;
     const errorEl = document.getElementById('crearUsuarioError');
     const okEl = document.getElementById('crearUsuarioOk');
     errorEl.textContent = '';
@@ -9442,7 +9474,7 @@ var supabase = function(e) {
           'Authorization': 'Bearer ' + session.access_token,
           'apikey': SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, email, password, area_id: area_id ? Number(area_id) : null }),
+        body: JSON.stringify({ primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, email, password, area_id: area_id ? Number(area_id) : null, cargo_id: cargo_id ? Number(cargo_id) : null }),
       });
       const resultado = await resp.json();
 
@@ -9454,6 +9486,7 @@ var supabase = function(e) {
       okEl.textContent = 'Usuario creado. Ya puede iniciar sesión con el correo y la contraseña que definiste. Entra a su área para asignarle un rol.';
       ['nuevoUsuarioPrimerNombre', 'nuevoUsuarioSegundoNombre', 'nuevoUsuarioPrimerApellido', 'nuevoUsuarioSegundoApellido', 'nuevoUsuarioEmail', 'nuevoUsuarioPassword'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('nuevoUsuarioArea').value = '';
+      llenarSelectCargoNuevoUsuario();
 
       if (areaActualId !== null) await cargarPersonasDeArea(areaActualId);
     } catch (e) {
@@ -9484,7 +9517,7 @@ var supabase = function(e) {
 
     const { data, error } = await sb
       .from('usuarios')
-      .select('id, nombre_completo, activo, usuario_roles(rol_id, roles(id, nombre))')
+      .select('id, nombre_completo, activo, cargo_id, usuario_roles(rol_id, roles(id, nombre))')
       .eq('area_id', areaId)
       .order('nombre_completo');
 
@@ -9537,12 +9570,43 @@ var supabase = function(e) {
       `;
     }
 
+    let cargoHtml;
+    if (puedeGestionarRoles) {
+      const opcionesCargo = cargosParaArea(areaActualId, persona.cargo_id).map(id =>
+        `<option value="${id}" ${id === persona.cargo_id ? 'selected' : ''}>${escaparHtml(nombreCargoOrg(id))}</option>`).join('');
+      cargoHtml = `
+        <div style="display:flex; align-items:center; gap:8px; margin:6px 0 8px; font-size:13px; flex-wrap:wrap;">
+          <span style="color:#64748b;">Cargo:</span>
+          <select onchange="asignarCargo('${persona.id}', this)" style="flex:1; min-width:220px; padding:4px 6px; border:1px solid #B7C2CE; border-radius:4px; font-size:13px;">
+            <option value="" ${persona.cargo_id ? '' : 'selected'}>Sin cargo asignado</option>
+            ${opcionesCargo}
+          </select>
+          <span id="msgCargo-${persona.id}" style="font-size:12px;"></span>
+        </div>`;
+    } else {
+      cargoHtml = `<div style="margin:6px 0 8px; font-size:13px; color:#64748b;">Cargo: ${persona.cargo_id ? escaparHtml(nombreCargoOrg(persona.cargo_id)) : 'Sin cargo asignado'}</div>`;
+    }
+
     card.innerHTML = `
       <div class="nombre">${escaparHtml(persona.nombre_completo)}${persona.activo ? '' : ' <span style="color:#B3402F; font-weight:normal; font-size:12px;">(inactivo)</span>'}</div>
+      ${cargoHtml}
       <div class="roles">${rolesHtml}</div>
       ${formAsignarHtml}
     `;
     cont.appendChild(card);
+  }
+
+  async function asignarCargo(usuarioId, select) {
+    const msg = document.getElementById('msgCargo-' + usuarioId);
+    select.disabled = true;
+    const { error } = await sb.rpc('asignar_cargo_usuario', {
+      p_usuario: usuarioId,
+      p_cargo_id: select.value ? Number(select.value) : null
+    });
+    select.disabled = false;
+    msg.textContent = error ? 'No se pudo guardar: ' + error.message : 'Guardado ✓';
+    msg.style.color = error ? '#b91c1c' : '#15803d';
+    if (!error) setTimeout(() => { msg.textContent = ''; }, 2500);
   }
 
   async function asignarRol(usuarioId, btn) {
