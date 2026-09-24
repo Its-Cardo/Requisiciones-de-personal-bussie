@@ -9110,7 +9110,7 @@ var supabase = function(e) {
             <input type="text" id="nuevoUsuarioPrimerApellido" autocomplete="off">
           </div>
           <div class="form-group">
-            <label>Segundo apellido:</label>
+            <label>Segundo apellido (si tiene):</label>
             <input type="text" id="nuevoUsuarioSegundoApellido" autocomplete="off">
           </div>
           <div class="form-group">
@@ -9383,8 +9383,8 @@ var supabase = function(e) {
     errorEl.textContent = '';
     okEl.textContent = '';
 
-    if (!primer_nombre || !primer_apellido || !segundo_apellido || !email || !password) {
-      errorEl.textContent = 'Completa primer nombre, primer apellido, segundo apellido, correo y contraseña.';
+    if (!primer_nombre || !primer_apellido || !email || !password) {
+      errorEl.textContent = 'Completa primer nombre, primer apellido, correo y contraseña.';
       return;
     }
     if (password.length < 6) {
