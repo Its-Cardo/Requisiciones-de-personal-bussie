@@ -22439,6 +22439,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <label>Ciudad:</label>
         <input type="text" id="ciudad" oninput="soloLetras(this)">
       </div>
+      <div class="form-group">
+        <label>Jefe inmediato para firma:</label>
+        <select id="jefe_inmediato" required>
+          <option value="" disabled selected>Seleccione primero el cargo...</option>
+        </select>
+      </div>
     </div>
 
     <!-- 2, 3 Y 4: TIPO, MOTIVO Y CONTRATO -->
@@ -22647,6 +22653,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       'direccion': document.getElementById('direccion').value,
       'centro_costo': document.getElementById('centro_costo').value,
       'ciudad': document.getElementById('ciudad').value,
+      'jefe_inmediato_cargo': document.getElementById('jefe_inmediato').value,
       
       'tipo_requisicion': document.getElementById('tipo_requisicion').value,
       'motivo_vacante': document.getElementById('motivo_vacante').value,
@@ -22784,6 +22791,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     poner('direccion', d.direccion);
     poner('centro_costo', d.centro_costo);
     poner('ciudad', d.ciudad);
+    poner('jefe_inmediato', d.jefe_inmediato_cargo);
     poner('tipo_requisicion', d.tipo_requisicion);
     poner('motivo_vacante', d.motivo_vacante);
     poner('tipo_contrato', d.tipo_contrato);
@@ -22927,7 +22935,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 <script>
   // ================== LISTAS DEL FORMULARIO (vienen de Supabase) ==================
   const OPCION_CARGO_NO_EXISTENTE = 'Cargo no existente';
-  let catalogo = { areas: [], centrosCosto: [], cargos: [], cargoCentroCosto: [], cargoArea: [] };
+  let catalogo = { areas: [], centrosCosto: [], cargos: [], cargoCentroCosto: [], cargoArea: [], organigrama: [] };
   let modoCargoLibre = false; // true cuando se eligió "Cargo no existente"
   let indiceSugerenciaActiva = -1;
 
@@ -22935,22 +22943,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const normalizar = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
 
   async function cargarCatalogos() {
-    const [areas, centros, cargos, relacion, opciones, cargoArea] = await Promise.all([
+    const [areas, centros, cargos, relacion, opciones, cargoArea, organigrama] = await Promise.all([
       supabaseClient.from('areas').select('id, nombre'),
       supabaseClient.from('centros_costo').select('codigo, area_id').eq('activo', true),
       supabaseClient.from('cargos').select('id, nombre').eq('activo', true),
       supabaseClient.from('cargo_centro_costo').select('cargo_id, centro_costo'),
       supabaseClient.from('opciones_formulario').select('campo, valor, etiqueta, orden').eq('activo', true).order('orden'),
-      supabaseClient.from('cargo_area').select('cargo_id, area_id')
+      supabaseClient.from('cargo_area').select('cargo_id, area_id'),
+      supabaseClient.from('organigrama').select('area_id, cargo_id, jefe_cargo_id')
     ]);
-    if (areas.error || centros.error || cargos.error || relacion.error || opciones.error || cargoArea.error) return false;
+    if (areas.error || centros.error || cargos.error || relacion.error || opciones.error || cargoArea.error || organigrama.error) return false;
 
     catalogo = {
       areas: areas.data.sort((x, y) => x.nombre.localeCompare(y.nombre, 'es')),
       centrosCosto: centros.data,
       cargos: cargos.data,
       cargoCentroCosto: relacion.data,
-      cargoArea: cargoArea.data
+      cargoArea: cargoArea.data,
+      organigrama: organigrama.data
     };
 
     // Listas simples: compañía, tipo de requisición, motivo y tipo de contrato
@@ -22978,6 +22988,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
 
     document.getElementById('centro_costo').addEventListener('change', alCambiarCentroCosto);
+    document.getElementById('jefe_inmediato').addEventListener('change', alCambiarJefeInmediato);
     const buscarCentro = document.getElementById('centro_costo_buscar');
     buscarCentro.addEventListener('input', mostrarSugerenciasCentroCosto);
     buscarCentro.addEventListener('focus', mostrarSugerenciasCentroCosto);
@@ -23143,6 +23154,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     else select.value = '';
     select.setCustomValidity('');
     ocultarBuscadorCentroCosto();
+    actualizarJefeInmediato();
   }
 
   function nombreAreaDeCentro(codigo) {
@@ -23206,6 +23218,80 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     select.style.cursor = 'not-allowed';
     actualizarCentrosCosto();
     return true;
+  }
+
+  // ================== JEFE INMEDIATO PARA FIRMA (según el organigrama) ==================
+  const OPCION_OTRO_JEFE = '__otro_jefe__';
+  const CARGO_DIRECTOR_OPERACIONES = 'DIRECTOR DE OPERACIONES';
+  const PREFIJOS_JEFES = ['GERENTE', 'JEFE', 'COORDINADOR', 'LIDER', 'SUPERVISOR'];
+  let modoOtroJefe = false;
+  let claveJefe = null; // área + cargo con los que se calculó el jefe (para saber cuándo reiniciar)
+
+  const nombreCargoPorId = (id) => catalogo.cargos.find(c => c.id === id)?.nombre || null;
+
+  // Jefe sugerido: el del organigrama para el área y cargo elegidos
+  function jefeSugerido() {
+    const area = areaSeleccionada();
+    const cargo = modoCargoLibre ? null : cargoElegido();
+    if (!area || !cargo) return null;
+    const fila = catalogo.organigrama.find(o => o.area_id === area.id && o.cargo_id === cargo.id);
+    return fila ? nombreCargoPorId(fila.jefe_cargo_id) : null;
+  }
+
+  // Posibles jefes: supervisores, líderes, coordinadores, jefes y gerentes del área, más el Director de Operaciones
+  function posiblesJefes() {
+    const area = areaSeleccionada();
+    if (!area) return [];
+    const nombres = catalogo.organigrama
+      .filter(o => o.area_id === area.id)
+      .map(o => nombreCargoPorId(o.cargo_id))
+      .filter(n => n && PREFIJOS_JEFES.includes(n.split(' ')[0]));
+    const lista = [...new Set(nombres)].sort((x, y) => x.localeCompare(y, 'es'));
+    lista.push(CARGO_DIRECTOR_OPERACIONES);
+    return lista;
+  }
+
+  function actualizarJefeInmediato() {
+    const select = document.getElementById('jefe_inmediato');
+    const area = areaSeleccionada();
+    const cargo = modoCargoLibre ? null : cargoElegido();
+    const clave = (area ? area.id : '') + '|' + (modoCargoLibre ? 'libre' : (cargo ? cargo.id : ''));
+    let anterior = select.value;
+    if (clave !== claveJefe) { modoOtroJefe = false; claveJefe = clave; anterior = ''; }
+
+    const sugerido = jefeSugerido();
+    const hayCargo = modoCargoLibre || !!cargo;
+    select.innerHTML = '';
+
+    if (!hayCargo) {
+      select.appendChild(new Option('Seleccione primero el cargo...', ''));
+      select.options[0].disabled = true;
+      select.value = '';
+      return;
+    }
+
+    if (sugerido && !modoOtroJefe) {
+      select.appendChild(new Option('Seleccione el jefe inmediato...', ''));
+      select.appendChild(new Option(sugerido + ' (sugerido)', sugerido));
+      select.appendChild(new Option('➕ Elegir otro jefe', OPCION_OTRO_JEFE));
+      select.value = sugerido;
+      return;
+    }
+
+    // Lista completa: "Elegir otro jefe", cargo no existente, o cargo sin jefe en el organigrama
+    select.appendChild(new Option('Seleccione el jefe inmediato...', ''));
+    posiblesJefes().forEach(n => select.appendChild(new Option(n === sugerido ? n + ' (sugerido)' : n, n)));
+    select.value = [...select.options].some(o => o.value === anterior) ? anterior : '';
+  }
+
+  function alCambiarJefeInmediato() {
+    const select = document.getElementById('jefe_inmediato');
+    if (select.value === OPCION_OTRO_JEFE) {
+      modoOtroJefe = true;
+      select.value = '';
+      actualizarJefeInmediato();
+      select.focus();
+    }
   }
 
   // Al cambiar de área (o limpiar el formulario) se reinician el cargo y el centro de costo

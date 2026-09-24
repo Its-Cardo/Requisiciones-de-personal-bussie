@@ -9158,6 +9158,7 @@ var supabase = function(e) {
   let usuarioActual = null;      // fila de la tabla usuarios para el usuario logueado
   let puedeGestionarRoles = false;   // solo Developer
   let puedeVerTodasLasAreas = false; // Developer, Director general, Gerente de Talento Humano
+  let esAdmin = false;               // Admin: puede cancelar requisiciones de su área
   let catalogoRoles = [];        // [{id, nombre}]
   let catalogoAreas = [];        // [{id, nombre}]
   let areaActualId = null;
@@ -9189,6 +9190,7 @@ var supabase = function(e) {
     usuarioActual = null;
     puedeGestionarRoles = false;
     puedeVerTodasLasAreas = false;
+    esAdmin = false;
     iframeRequisicionCargado = false;
     vistaRequisiciones = 'area';
     document.getElementById('btnVistaArea').className = 'acento';
@@ -9223,6 +9225,7 @@ var supabase = function(e) {
     usuarioActual = perfil;
     const nombresRoles = (perfil.usuario_roles || []).map(ur => ur.roles?.nombre).filter(Boolean);
     puedeGestionarRoles = nombresRoles.includes('Developer');
+    esAdmin = nombresRoles.includes('Admin');
     puedeVerTodasLasAreas = nombresRoles.some(r => ['Developer', 'Director general', 'Gerente de Talento Humano'].includes(r));
 
     const iniciales = perfil.nombre_completo.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('');
@@ -9646,9 +9649,12 @@ var supabase = function(e) {
   // ---- Cancelar: solo quien la creó, o un Developer (Supabase también lo verifica) ----
   let requisicionACancelar = null;
 
+  // Cancelar: quien la creó, un Developer, o un Admin si la requisición es de su área (Supabase también lo verifica)
   function puedeCancelar(r) {
     if (r.estado === 'cancelada') return false;
-    return r.creado_por === usuarioActual?.id || puedeGestionarRoles;
+    if (r.creado_por === usuarioActual?.id || puedeGestionarRoles) return true;
+    const miArea = catalogoAreas.find(a => a.id === usuarioActual?.area_id)?.nombre;
+    return esAdmin && !!miArea && r.datos_formulario?.area === miArea;
   }
 
   function abrirModalCancelar(id, numero) {
