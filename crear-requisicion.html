@@ -22417,7 +22417,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     <div class="grid-2">
       <div class="form-group" style="position:relative;">
         <label>Nombre del Cargo:</label>
-        <input type="text" id="nombre_cargo" required oninput="soloLetras(this)" autocomplete="off" placeholder="Escriba para buscar un cargo...">
+        <div style="position:relative;">
+          <input type="text" id="nombre_cargo" required oninput="soloLetras(this)" autocomplete="off" placeholder="Escriba para buscar un cargo..." style="padding-right:30px;">
+          <button type="button" id="limpiar_cargo" title="Borrar cargo" onclick="limpiarCargo()" style="display:none; position:absolute; right:4px; top:50%; transform:translateY(-50%); background:none; border:none; color:#64748b; font-size:18px; line-height:1; padding:2px 6px; cursor:pointer;">×</button>
+        </div>
         <div id="lista_cargos" class="lista-sugerencias" style="display:none;"></div>
         <div id="aviso_cargo_libre" style="display:none; font-size:12px; color:#64748b; margin-top:4px;">
           Escribiendo un cargo no existente. <button type="button" class="link-toggle" style="font-size:12px; padding:0;" onclick="volverAListaDeCargos()">Elegir de la lista</button>
@@ -22920,6 +22923,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     background: #fff; border: 1px solid #B7C2CE; border-radius: 4px; box-shadow: 0 4px 12px rgba(16,36,62,0.12); margin-top: 2px; }
   .lista-sugerencias .opcion { padding: 7px 10px; font-size: 14px; cursor: pointer; color: #10243E; }
   .lista-sugerencias .opcion.activa, .lista-sugerencias .opcion:hover { background: #E6F6F5; }
+  .lista-sugerencias .opcion.actual { font-weight: 700; background: #F1F5F9; }
   .lista-sugerencias .opcion.no-existente { border-top: 1px solid #DCE3EA; color: #1CA7A0; font-weight: 600; }
   .lista-sugerencias .sin-resultados { padding: 7px 10px; font-size: 13px; color: #64748b; }
 </style>
@@ -22963,8 +22967,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     selectArea.addEventListener('change', reiniciarCargoYCentroCosto);
 
     const inputCargo = document.getElementById('nombre_cargo');
-    inputCargo.addEventListener('focus', () => { if (!modoCargoLibre) mostrarSugerenciasCargo(); });
+    inputCargo.addEventListener('focus', () => { if (!modoCargoLibre) mostrarSugerenciasCargo(true); });
+    inputCargo.addEventListener('click', () => { if (!modoCargoLibre) mostrarSugerenciasCargo(true); });
     inputCargo.addEventListener('input', () => {
+      actualizarBotonLimpiarCargo();
       if (modoCargoLibre) { inputCargo.setCustomValidity(''); return; }
       mostrarSugerenciasCargo();
       validarCargo();
@@ -23012,9 +23018,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return cargosDelArea().find(c => normalizar(c.nombre) === valor) || null;
   }
 
-  function mostrarSugerenciasCargo() {
+  // alAbrir = true cuando se abre con clic/foco: si ya hay un cargo elegido, se muestran todos los del área
+  function mostrarSugerenciasCargo(alAbrir) {
     const lista = document.getElementById('lista_cargos');
-    const texto = normalizar(document.getElementById('nombre_cargo').value);
+    const actual = cargoElegido();
+    const texto = (alAbrir && actual) ? '' : normalizar(document.getElementById('nombre_cargo').value);
     lista.innerHTML = '';
     indiceSugerenciaActiva = -1;
 
@@ -23028,7 +23036,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (coincidencias.length === 0) {
       lista.innerHTML = '<div class="sin-resultados">No hay cargos que coincidan en esta área.</div>';
     }
-    coincidencias.forEach(c => lista.appendChild(crearOpcionCargo(c.nombre, () => elegirCargo(c.nombre))));
+    coincidencias.forEach(c => lista.appendChild(crearOpcionCargo(c.nombre, () => elegirCargo(c.nombre), actual && c.id === actual.id ? 'actual' : '')));
     lista.appendChild(crearOpcionCargo('➕ ' + OPCION_CARGO_NO_EXISTENTE, activarCargoLibre, 'no-existente'));
     lista.style.display = 'block';
   }
@@ -23064,7 +23072,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     input.value = nombre;
     input.setCustomValidity('');
     document.getElementById('lista_cargos').style.display = 'none';
+    actualizarBotonLimpiarCargo();
     actualizarCentrosCosto();
+  }
+
+  // Botón "×": borra el cargo y vuelve a abrir la lista
+  function limpiarCargo() {
+    const input = document.getElementById('nombre_cargo');
+    input.value = '';
+    input.setCustomValidity('');
+    actualizarBotonLimpiarCargo();
+    actualizarCentrosCosto();
+    input.focus();
+    if (!modoCargoLibre) mostrarSugerenciasCargo();
+  }
+
+  function actualizarBotonLimpiarCargo() {
+    const input = document.getElementById('nombre_cargo');
+    document.getElementById('limpiar_cargo').style.display = (input.value && !input.disabled) ? 'block' : 'none';
   }
 
   // Solo se acepta un cargo de la lista (salvo que se haya elegido "Cargo no existente")
@@ -23086,6 +23111,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     input.placeholder = 'Escriba el nombre del cargo...';
     document.getElementById('lista_cargos').style.display = 'none';
     document.getElementById('aviso_cargo_libre').style.display = 'block';
+    actualizarBotonLimpiarCargo();
     actualizarCentrosCosto();
     input.focus();
   }
@@ -23096,6 +23122,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     input.value = '';
     input.placeholder = 'Escriba para buscar un cargo...';
     document.getElementById('aviso_cargo_libre').style.display = 'none';
+    actualizarBotonLimpiarCargo();
     actualizarCentrosCosto();
     input.focus();
   }
@@ -23214,6 +23241,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     input.placeholder = 'Escriba para buscar un cargo...';
     document.getElementById('aviso_cargo_libre').style.display = 'none';
     document.getElementById('lista_cargos').style.display = 'none';
+    actualizarBotonLimpiarCargo();
     actualizarCentrosCosto();
   }
 </script>
