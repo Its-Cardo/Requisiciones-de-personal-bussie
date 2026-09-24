@@ -22427,11 +22427,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <label>Dirección:</label>
         <input type="text" id="direccion" value="Operaciones" disabled style="background-color:#f1f5f9; cursor:not-allowed;">
       </div>
-      <div class="form-group">
+      <div class="form-group" style="position:relative;">
         <label>Centro de Costo:</label>
         <select id="centro_costo">
           <option value="" selected>Seleccione un centro de costo...</option>
         </select>
+        <input type="text" id="centro_costo_buscar" oninput="soloNumeros(this)" autocomplete="off" placeholder="Escriba el número del centro de costo..." style="display:none; margin-top:6px;">
+        <div id="lista_centros_costo" class="lista-sugerencias" style="display:none;"></div>
       </div>
       <div class="form-group">
         <label>Ciudad:</label>
@@ -22971,6 +22973,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!modoCargoLibre) validarCargo();
     });
 
+    document.getElementById('centro_costo').addEventListener('change', alCambiarCentroCosto);
+    const buscarCentro = document.getElementById('centro_costo_buscar');
+    buscarCentro.addEventListener('input', mostrarSugerenciasCentroCosto);
+    buscarCentro.addEventListener('focus', mostrarSugerenciasCentroCosto);
+    buscarCentro.addEventListener('blur', () => {
+      setTimeout(() => { document.getElementById('lista_centros_costo').style.display = 'none'; }, 150);
+    });
+
     actualizarCentrosCosto();
     return true;
   }
@@ -23057,9 +23067,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Solo se acepta un cargo de la lista (salvo que se haya elegido "Cargo no existente")
   function validarCargo() {
     const input = document.getElementById('nombre_cargo');
-    const valido = input.value === '' || cargoElegido() !== null;
+    const cargo = cargoElegido();
+    const valido = input.value === '' || cargo !== null;
     input.setCustomValidity(valido ? '' : 'Seleccione un cargo de la lista, o elija "Cargo no existente".');
-    actualizarCentrosCosto();
+    // Solo se recalculan los centros de costo si el cargo reconocido cambió
+    const idCargo = cargo ? cargo.id : null;
+    if (idCargo !== ultimoCargoFiltrado) actualizarCentrosCosto();
   }
 
   function activarCargoLibre() {
@@ -23084,21 +23097,91 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     input.focus();
   }
 
-  // Centro de costo: los del área y cargo elegidos (todos los del área si no hay cargo o es un cargo no existente)
-  function actualizarCentrosCosto() {
-    const select = document.getElementById('centro_costo');
-    const anterior = select.value;
+  // Centro de costo: los del área y cargo elegidos (todos los del área si no hay cargo o es un cargo no existente),
+  // más la opción "Elegir otro centro de costo" al final, que permite buscar entre todos los existentes
+  const OPCION_OTRO_CENTRO_COSTO = '__otro__';
+  let centroCostoOtro = null; // centro de costo elegido con "Elegir otro centro de costo"
+
+  function centrosFiltrados() {
     let centros = centrosDelArea();
     const cargo = modoCargoLibre ? null : cargoElegido();
     if (cargo) {
       const delCargo = new Set(catalogo.cargoCentroCosto.filter(r => r.cargo_id === cargo.id).map(r => r.centro_costo));
       centros = centros.filter(c => delCargo.has(c));
     }
+    return centros;
+  }
+
+  let ultimoCargoFiltrado = null; // cargo con el que se filtraron por última vez los centros de costo
+
+  function actualizarCentrosCosto() {
+    const select = document.getElementById('centro_costo');
+    const anterior = select.value;
+    const cargoActual = modoCargoLibre ? null : cargoElegido();
+    ultimoCargoFiltrado = cargoActual ? cargoActual.id : null;
+    const centros = centrosFiltrados();
+    if (centroCostoOtro && centros.includes(centroCostoOtro)) centroCostoOtro = null;
     select.innerHTML = '';
     select.appendChild(new Option('Seleccione un centro de costo...', ''));
     centros.forEach(c => select.appendChild(new Option(c, c)));
-    if (centros.length === 1) select.value = centros[0];
-    else if (centros.includes(anterior)) select.value = anterior;
+    if (centroCostoOtro) {
+      select.appendChild(new Option(centroCostoOtro + ' (otro centro de costo)', centroCostoOtro));
+    }
+    select.appendChild(new Option('➕ Elegir otro centro de costo', OPCION_OTRO_CENTRO_COSTO));
+
+    const disponibles = centroCostoOtro ? [...centros, centroCostoOtro] : centros;
+    if (disponibles.includes(anterior)) select.value = anterior;
+    else if (centros.length === 1) select.value = centros[0];
+    else select.value = '';
+    select.setCustomValidity('');
+    ocultarBuscadorCentroCosto();
+  }
+
+  function nombreAreaDeCentro(codigo) {
+    const cc = catalogo.centrosCosto.find(c => c.codigo === codigo);
+    const area = cc ? catalogo.areas.find(a => a.id === cc.area_id) : null;
+    return area ? area.nombre : 'Sin área';
+  }
+
+  function alCambiarCentroCosto() {
+    const select = document.getElementById('centro_costo');
+    if (select.value === OPCION_OTRO_CENTRO_COSTO) {
+      select.setCustomValidity('Seleccione un centro de costo de la lista.');
+      const buscar = document.getElementById('centro_costo_buscar');
+      buscar.value = '';
+      buscar.style.display = 'block';
+      buscar.focus();
+    } else {
+      select.setCustomValidity('');
+      ocultarBuscadorCentroCosto();
+    }
+  }
+
+  function mostrarSugerenciasCentroCosto() {
+    const lista = document.getElementById('lista_centros_costo');
+    const texto = document.getElementById('centro_costo_buscar').value.trim();
+    lista.innerHTML = '';
+    const coincidencias = catalogo.centrosCosto.map(c => c.codigo).filter(c => c.includes(texto)).sort();
+    if (coincidencias.length === 0) {
+      lista.innerHTML = '<div class="sin-resultados">No hay centros de costo que coincidan.</div>';
+    }
+    coincidencias.forEach(codigo => {
+      lista.appendChild(crearOpcionCargo(codigo + ' — ' + nombreAreaDeCentro(codigo), () => elegirOtroCentroCosto(codigo)));
+    });
+    lista.style.display = 'block';
+  }
+
+  function elegirOtroCentroCosto(codigo) {
+    centroCostoOtro = codigo; // si ya estaba en la lista filtrada, actualizarCentrosCosto lo deja como opción normal
+    const select = document.getElementById('centro_costo');
+    select.value = '';
+    actualizarCentrosCosto();
+    select.value = codigo;
+  }
+
+  function ocultarBuscadorCentroCosto() {
+    document.getElementById('centro_costo_buscar').style.display = 'none';
+    document.getElementById('lista_centros_costo').style.display = 'none';
   }
 
   // Fija el área del usuario en el formulario (bloqueada), salvo para Developer.
@@ -23120,6 +23203,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Al cambiar de área (o limpiar el formulario) se reinician el cargo y el centro de costo
   function reiniciarCargoYCentroCosto() {
     modoCargoLibre = false;
+    centroCostoOtro = null;
     const input = document.getElementById('nombre_cargo');
     input.value = '';
     input.setCustomValidity('');
