@@ -8962,6 +8962,13 @@ var supabase = function(e) {
     .pill-aprobada { background: #DCFCE7; color: #15803D; }
     .pill-rechazada { background: #F1F5F9; color: #64748B; }
     .pill-cancelada { background: #FDE2E1; color: #B3402F; }
+    .contador-pendientes { display: inline-block; min-width: 20px; padding: 1px 7px; border-radius: 999px; background: #B3402F; color: #fff; font-size: 12px; font-weight: 700; text-align: center; margin-left: 6px; vertical-align: middle; }
+    .contador-pendientes.vacio { background: #CBD5E1; color: #475569; }
+    .tarjeta-pendiente { background: #F8FAFC; border: 1px solid #DCE3EA; border-left: 5px solid #1CA7A0; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+    .tarjeta-pendiente .titulo-pend { font-weight: 700; color: #10243E; font-size: 15px; }
+    .tarjeta-pendiente .detalle-pend { font-size: 13px; color: #64748b; margin: 4px 0 8px; }
+    .tarjeta-pendiente .acciones-pend { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+    .tarjeta-pendiente .acciones-pend input[type=file] { font-size: 13px; max-width: 100%; }
     .fondo-modal { position: fixed; inset: 0; background: rgba(16,36,62,0.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
     .caja-modal { background: #fff; border-radius: 10px; padding: 22px; width: 100%; max-width: 460px; box-shadow: 0 10px 30px rgba(16,36,62,0.25); }
     .caja-modal textarea { width: 100%; min-height: 90px; padding: 8px; border: 1px solid #B7C2CE; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 14px; }
@@ -9025,6 +9032,13 @@ var supabase = function(e) {
           <div class="desc" id="descVerRequisiciones">Consulta el estado de las requisiciones de tu área</div>
         </div>
       </div>
+      <div class="inicio-boton" id="botonPendientesFirma" onclick="mostrarSeccionPendientes()">
+        <div class="icono">✍️</div>
+        <div class="texto">
+          <div class="titulo">Pendientes por firmar <span id="contadorPendientes" class="contador-pendientes vacio">0</span></div>
+          <div class="desc">Requisiciones que esperan tu firma</div>
+        </div>
+      </div>
       <div class="inicio-boton solo-developer hidden" id="botonAsignarRoles" onclick="mostrarSeccionOrganigrama()">
         <div class="icono">🗂️</div>
         <div class="texto">
@@ -9076,6 +9090,31 @@ var supabase = function(e) {
         <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
           <button class="secundario" onclick="cerrarModalCancelar()">Volver</button>
           <button id="btnConfirmarCancelar" class="peligro" style="padding:8px 14px; font-size:14px;" onclick="confirmarCancelacion()">Cancelar requisición</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECCIÓN: PENDIENTES POR FIRMAR ============ -->
+  <div id="seccionPendientes" class="hidden">
+    <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
+    <div class="section-title">Pendientes por firmar</div>
+    <p style="color:#64748b; font-size:13px; margin-top:-8px;">
+      Para firmar: descarga el PDF, fírmalo en Adobe Acrobat con tu ID digital (sin hacer otros cambios), guárdalo y súbelo aquí. La app verifica que sea el mismo documento, que tenga tu firma y que el certificado esté a tu nombre.
+    </p>
+    <div id="listaPendientes"><div class="cargando">Cargando...</div></div>
+
+    <!-- Ventana para rechazar -->
+    <div id="modalRechazar" class="fondo-modal hidden">
+      <div class="caja-modal">
+        <div class="section-title" style="margin-top:0;">Rechazar requisición <span id="modalRechazarNumero"></span></div>
+        <p style="font-size:13px; color:#64748b; margin:0 0 8px;">La requisición quedará rechazada y, para continuar, habrá que crear una nueva con otro número.</p>
+        <label for="motivoRechazo" style="display:block; font-size:14px; margin-bottom:6px;">Motivo del rechazo (obligatorio):</label>
+        <textarea id="motivoRechazo"></textarea>
+        <div id="modalRechazarMensaje" style="font-size:13px; margin-top:8px; color:#b91c1c;"></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
+          <button class="secundario" onclick="cerrarModalRechazar()">Volver</button>
+          <button id="btnConfirmarRechazo" class="peligro" style="padding:8px 14px; font-size:14px;" onclick="confirmarRechazo()">Rechazar requisición</button>
         </div>
       </div>
     </div>
@@ -9273,6 +9312,7 @@ var supabase = function(e) {
 
     await cargarCatalogoRoles();
     await cargarCatalogoAreas();
+    actualizarContadorPendientes();
     volverAlInicio();
   }
 
@@ -9299,7 +9339,7 @@ var supabase = function(e) {
   // ================== NAVEGACIÓN ENTRE SECCIONES ==================
 
   function ocultarTodasLasSecciones() {
-    ['seccionInicio', 'seccionCrearRequisicion', 'seccionVerRequisiciones', 'seccionDetalleRequisicion', 'seccionOrganigrama'].forEach(id => {
+    ['seccionInicio', 'seccionCrearRequisicion', 'seccionVerRequisiciones', 'seccionDetalleRequisicion', 'seccionOrganigrama', 'seccionPendientes'].forEach(id => {
       document.getElementById(id).classList.add('hidden');
     });
   }
@@ -9307,6 +9347,7 @@ var supabase = function(e) {
   function volverAlInicio() {
     ocultarTodasLasSecciones();
     document.getElementById('seccionInicio').classList.remove('hidden');
+    actualizarContadorPendientes();
   }
 
   function mostrarSeccionCrearRequisicion() {
@@ -9687,6 +9728,128 @@ var supabase = function(e) {
         <tbody>${filasHtml}</tbody>
       </table>
     `;
+  }
+
+  // ================== FIRMAS: PENDIENTES POR FIRMAR ==================
+  async function llamarFuncionFirmas(formData) {
+    const { data: { session } } = await sb.auth.getSession();
+    const resp = await fetch(SUPABASE_URL + '/functions/v1/firmas', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + (session ? session.access_token : ''), 'apikey': SUPABASE_ANON_KEY },
+      body: formData
+    });
+    let cuerpo = {};
+    try { cuerpo = await resp.json(); } catch (_) {}
+    if (!resp.ok || cuerpo.error) throw new Error(cuerpo.error || ('Error ' + resp.status));
+    return cuerpo;
+  }
+
+  async function actualizarContadorPendientes() {
+    const el = document.getElementById('contadorPendientes');
+    const { data, error } = await sb.rpc('mis_firmas_pendientes');
+    const n = error ? 0 : (data || []).length;
+    el.textContent = n;
+    el.classList.toggle('vacio', n === 0);
+  }
+
+  async function mostrarSeccionPendientes() {
+    ocultarTodasLasSecciones();
+    document.getElementById('seccionPendientes').classList.remove('hidden');
+    await cargarPendientes();
+  }
+
+  async function cargarPendientes() {
+    const cont = document.getElementById('listaPendientes');
+    cont.innerHTML = '<div class="cargando">Cargando...</div>';
+    const { data, error } = await sb.rpc('mis_firmas_pendientes');
+    if (error) { cont.innerHTML = '<div class="error-msg">No se pudieron cargar los pendientes: ' + escaparHtml(error.message) + '</div>'; return; }
+    actualizarContadorPendientes();
+    if (!data.length) { cont.innerHTML = '<p class="sin-roles">No tienes requisiciones pendientes por firmar.</p>'; return; }
+    cont.innerHTML = data.map(p => {
+      const id = escaparHtml(String(p.requisicion_id));
+      return `
+      <div class="tarjeta-pendiente">
+        <div class="titulo-pend">#${p.numero_consecutivo}-${p.anio} · ${escaparHtml(p.nombre_cargo || '')}</div>
+        <div class="detalle-pend">${escaparHtml(p.area || '')} · ${escaparHtml(p.tipo_requisicion || '')} · Solicitada por ${escaparHtml(p.nombre_solicitante || '')} el ${formatearFecha(p.creado_en)}</div>
+        <div style="font-size:14px;">Te corresponde firmar como: <strong>${escaparHtml(p.etiqueta)}</strong></div>
+        <div class="acciones-pend">
+          <button class="secundario" onclick="descargarPdfFirmas('${id}')">⬇️ Descargar PDF</button>
+          <button class="secundario" onclick="verRequisicion('${id}')">Ver requisición</button>
+        </div>
+        <div class="acciones-pend">
+          <input type="file" id="archivo-firma-${id}" accept="application/pdf,.pdf">
+          <button class="acento" onclick="subirPdfFirmado('${id}', this)">📤 Subir firmado</button>
+          <button class="peligro" style="padding:7px 12px; font-size:13px;" onclick="abrirModalRechazar('${id}', '#${p.numero_consecutivo}-${p.anio}')">Rechazar</button>
+        </div>
+        <div id="msg-firma-${id}" style="font-size:13px; margin-top:8px;"></div>
+      </div>`;
+    }).join('');
+  }
+
+  async function descargarPdfFirmas(idRequisicion) {
+    const fd = new FormData();
+    fd.append('accion', 'descargar');
+    fd.append('requisicion_id', idRequisicion);
+    try {
+      const r = await llamarFuncionFirmas(fd);
+      window.open(r.url, '_blank');
+    } catch (e) {
+      alert('No se pudo descargar: ' + e.message);
+    }
+  }
+
+  async function subirPdfFirmado(idRequisicion, boton) {
+    const input = document.getElementById('archivo-firma-' + idRequisicion);
+    const msg = document.getElementById('msg-firma-' + idRequisicion);
+    if (!input.files.length) { msg.style.color = '#b91c1c'; msg.textContent = 'Selecciona el PDF que firmaste.'; return; }
+    const fd = new FormData();
+    fd.append('accion', 'subir_firmado');
+    fd.append('requisicion_id', idRequisicion);
+    fd.append('archivo', input.files[0]);
+    boton.disabled = true;
+    msg.style.color = '#475569'; msg.textContent = 'Verificando la firma...';
+    try {
+      const r = await llamarFuncionFirmas(fd);
+      msg.style.color = '#15803d'; msg.textContent = '✅ ' + r.mensaje;
+      setTimeout(cargarPendientes, 2500);
+    } catch (e) {
+      msg.style.color = '#b91c1c'; msg.textContent = '⛔ ' + e.message;
+      boton.disabled = false;
+    }
+  }
+
+  let requisicionARechazar = null;
+  function abrirModalRechazar(id, numero) {
+    requisicionARechazar = id;
+    document.getElementById('modalRechazarNumero').textContent = numero;
+    document.getElementById('motivoRechazo').value = '';
+    document.getElementById('modalRechazarMensaje').textContent = '';
+    document.getElementById('btnConfirmarRechazo').disabled = false;
+    document.getElementById('modalRechazar').classList.remove('hidden');
+    document.getElementById('motivoRechazo').focus();
+  }
+  function cerrarModalRechazar() {
+    requisicionARechazar = null;
+    document.getElementById('modalRechazar').classList.add('hidden');
+  }
+  async function confirmarRechazo() {
+    const motivo = document.getElementById('motivoRechazo').value.trim();
+    const msg = document.getElementById('modalRechazarMensaje');
+    if (!motivo) { msg.textContent = 'Debes escribir el motivo del rechazo.'; return; }
+    const boton = document.getElementById('btnConfirmarRechazo');
+    boton.disabled = true;
+    const fd = new FormData();
+    fd.append('accion', 'rechazar');
+    fd.append('requisicion_id', requisicionARechazar);
+    fd.append('motivo', motivo);
+    try {
+      await llamarFuncionFirmas(fd);
+      cerrarModalRechazar();
+      cargarPendientes();
+    } catch (e) {
+      msg.textContent = 'No se pudo rechazar: ' + e.message;
+      boton.disabled = false;
+    }
   }
 
   // ================== ORGANIGRAMA (solo Developer) ==================

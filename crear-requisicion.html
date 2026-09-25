@@ -22547,6 +22547,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     <div id="resultado-generacion" style="margin-top:12px; font-size:14px;"></div>
 
+    <!-- Paso siguiente: subir el PDF original para iniciar las firmas -->
+    <div id="panel-subir-original" style="display:none; margin-top:16px; padding:14px 16px; border:1px solid #1CA7A0; border-radius:8px; background:#F0FAF9;">
+      <div style="font-weight:700; color:#10243E; margin-bottom:4px;">Paso siguiente: iniciar las firmas</div>
+      <div style="font-size:13px; color:#475569; margin-bottom:10px;">
+        Sube aquí el PDF que guardaste al imprimir, sin modificarlo. Con ese archivo arranca la cadena de firmas: Jefe inmediato → Director de Operaciones → Gerente de Talento Humano (→ Director General si aplica).
+      </div>
+      <input type="file" id="archivo_original" accept="application/pdf,.pdf" style="margin-bottom:10px;">
+      <button type="button" id="boton-subir-original" onclick="subirPdfOriginal()">📎 Subir PDF e iniciar firmas</button>
+      <div id="mensaje-subir-original" style="margin-top:8px; font-size:13px;"></div>
+    </div>
+
     <div style="margin-top: 10px;">
       <button type="button" class="link-toggle" onclick="nuevaRequisicion()">↺ Empezar una Requisición Nueva (limpiar formulario)</button>
     </div>
@@ -22695,7 +22706,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
 
         datos.cont = String(registro.numero_consecutivo);
-        ultimaRequisicionGenerada = { numero_consecutivo: registro.numero_consecutivo, anio: registro.anio };
+        ultimaRequisicionGenerada = { id: registro.id, numero_consecutivo: registro.numero_consecutivo, anio: registro.anio };
+        mostrarPanelSubirOriginal(registro.id);
         mensajeDiv.style.color = '#15803d';
         mensajeDiv.textContent = `✅ Requisición generada con el número ${registro.numero_consecutivo} (año ${registro.anio}).`;
       }
@@ -22756,7 +22768,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   async function cargarModoLectura(id) {
     const { data: req, error } = await supabaseClient
       .from('requisiciones')
-      .select('id, numero_consecutivo, anio, estado, nombre_solicitante, datos_formulario, motivo_cancelacion, cancelado_en, cancelado_por_nombre')
+      .select('id, numero_consecutivo, anio, estado, nombre_solicitante, datos_formulario, motivo_cancelacion, cancelado_en, cancelado_por_nombre, creado_por, pdf_actual_path, motivo_rechazo, rechazado_en, rechazado_por_nombre')
       .eq('id', id)
       .single();
 
@@ -22840,6 +22852,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     ocultarControlesDeEdicion();
 
+    // Si fue rechazada, mostrar el motivo
+    if (req.estado === 'rechazada') {
+      const caja = document.createElement('div');
+      caja.style.cssText = 'background:#F1F5F9; border:1px solid #CBD5E1; border-left:5px solid #64748B; color:#334155; border-radius:6px; padding:12px 14px; margin:0 0 18px; font-size:14px;';
+      const fecha = req.rechazado_en ? new Date(req.rechazado_en).toLocaleString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+      caja.innerHTML = '<div style="font-weight:700; margin-bottom:4px;">Requisición rechazada</div>';
+      const m = document.createElement('div'); m.textContent = 'Motivo: ' + (req.motivo_rechazo || '—');
+      const q = document.createElement('div'); q.style.cssText = 'font-size:12px; margin-top:6px;';
+      q.textContent = 'Rechazada' + (req.rechazado_por_nombre ? ' por ' + req.rechazado_por_nombre : '') + (fecha ? ' el ' + fecha : '') + '. Para continuar hay que crear una requisición nueva.';
+      caja.append(m, q);
+      intro.after(caja);
+    }
+
+    await mostrarFlujoDeFirmas(req);
+
     // Botón para imprimir la requisición guardada (con su mismo número, sin crear uno nuevo)
     const botonImprimir = document.createElement('button');
     botonImprimir.type = 'button';
@@ -22848,6 +22875,120 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.getElementById('reqForm').appendChild(botonImprimir);
 
     contenedor.style.display = 'block';
+  }
+
+  // ================== FIRMAS ==================
+  // Llama a la función "firmas" de Supabase con un FormData
+  async function llamarFuncionFirmas(formData) {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const resp = await fetch(SUPABASE_URL + '/functions/v1/firmas', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + (session ? session.access_token : ''), 'apikey': SUPABASE_ANON_KEY },
+      body: formData
+    });
+    let cuerpo = {};
+    try { cuerpo = await resp.json(); } catch (_) {}
+    if (!resp.ok || cuerpo.error) throw new Error(cuerpo.error || ('Error ' + resp.status));
+    return cuerpo;
+  }
+
+  let requisicionParaOriginal = null;
+  function mostrarPanelSubirOriginal(idRequisicion) {
+    requisicionParaOriginal = idRequisicion;
+    document.getElementById('archivo_original').value = '';
+    document.getElementById('archivo_original').disabled = false;
+    document.getElementById('mensaje-subir-original').textContent = '';
+    document.getElementById('boton-subir-original').disabled = false;
+    document.getElementById('panel-subir-original').style.display = 'block';
+  }
+
+  async function subirPdfOriginal() {
+    const input = document.getElementById('archivo_original');
+    const msg = document.getElementById('mensaje-subir-original');
+    const boton = document.getElementById('boton-subir-original');
+    if (!input.files.length) { msg.style.color = '#b91c1c'; msg.textContent = 'Selecciona el PDF que guardaste al imprimir.'; return; }
+    const fd = new FormData();
+    fd.append('accion', 'subir_original');
+    fd.append('requisicion_id', requisicionParaOriginal);
+    fd.append('archivo', input.files[0]);
+    boton.disabled = true;
+    msg.style.color = '#475569'; msg.textContent = 'Subiendo...';
+    try {
+      const r = await llamarFuncionFirmas(fd);
+      msg.style.color = '#15803d'; msg.textContent = '✅ ' + r.mensaje;
+      input.disabled = true;
+    } catch (e) {
+      msg.style.color = '#b91c1c'; msg.textContent = e.message;
+      boton.disabled = false;
+    }
+  }
+
+  async function descargarPdfRequisicion(idRequisicion, ruta) {
+    const fd = new FormData();
+    fd.append('accion', 'descargar');
+    fd.append('requisicion_id', idRequisicion);
+    if (ruta) fd.append('ruta', ruta);
+    try {
+      const r = await llamarFuncionFirmas(fd);
+      window.open(r.url, '_blank');
+    } catch (e) {
+      alert('No se pudo descargar: ' + e.message);
+    }
+  }
+
+  const ETIQUETA_ESTADO_FIRMA = { pendiente: 'Pendiente', firmada: 'Firmada', rechazada: 'Rechazada' };
+
+  // En "Ver": historial de firmas, descarga del PDF y, si aplica, el paso para subir el original
+  async function mostrarFlujoDeFirmas(req) {
+    const contenedor = document.getElementById('form-container');
+    const zona = document.createElement('div');
+    zona.style.cssText = 'margin:0 0 18px;';
+    contenedor.querySelector('h1 + p').parentNode.insertBefore(zona, document.getElementById('reqForm'));
+
+    if (req.estado === 'generada' && req.creado_por === usuarioActual?.id) {
+      zona.innerHTML = '<div style="font-size:13px; color:#92400E; background:#FEF3C7; border-radius:6px; padding:10px 12px;">Esta requisición todavía no ha iniciado las firmas. Sube el PDF original al final de la página.</div>';
+      document.getElementById('reqForm').after(document.getElementById('panel-subir-original'));
+      mostrarPanelSubirOriginal(req.id);
+      return;
+    }
+
+    const { data: pasos } = await supabaseClient.from('firmas_requisicion')
+      .select('paso, etiqueta, estado, firmado_por_nombre, nombre_certificado, firmado_en, motivo_rechazo, archivo_path')
+      .eq('requisicion_id', req.id).order('paso');
+    if (!pasos || !pasos.length) return;
+
+    const fmt = (iso) => iso ? new Date(iso).toLocaleString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+    const colores = { pendiente: '#92400E', firmada: '#15803D', rechazada: '#B3402F' };
+    const filas = pasos.map(p => {
+      const detalle = p.estado === 'firmada'
+        ? `${p.firmado_por_nombre || ''} · ${fmt(p.firmado_en)}`
+        : p.estado === 'rechazada' ? `${p.firmado_por_nombre || ''} · ${fmt(p.firmado_en)} · Motivo: ${p.motivo_rechazo || ''}` : '';
+      return `<tr>
+        <td style="padding:6px 8px; border-bottom:1px solid #E2E8F0;">${p.paso}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid #E2E8F0;">${escaparTexto(p.etiqueta)}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid #E2E8F0; color:${colores[p.estado] || '#334155'}; font-weight:600;">${ETIQUETA_ESTADO_FIRMA[p.estado] || p.estado}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid #E2E8F0; font-size:12px; color:#475569;">${escaparTexto(detalle)}</td>
+      </tr>`;
+    }).join('');
+    zona.innerHTML = `
+      <div style="border:1px solid #DCE3EA; border-radius:8px; padding:12px 14px; background:#fff;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+          <div style="font-weight:700; color:#10243E;">Firmas</div>
+          ${req.pdf_actual_path ? '<button type="button" id="boton-descargar-pdf" style="width:auto; padding:6px 12px; font-size:13px; margin:0;">⬇️ Descargar PDF actual</button>' : ''}
+        </div>
+        <div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:13px;">
+          <thead><tr style="text-align:left; color:#64748b;"><th style="padding:6px 8px;">Paso</th><th style="padding:6px 8px;">Firmante</th><th style="padding:6px 8px;">Estado</th><th style="padding:6px 8px;">Detalle</th></tr></thead>
+          <tbody>${filas}</tbody>
+        </table></div>
+      </div>`;
+    const botonPdf = document.getElementById('boton-descargar-pdf');
+    if (botonPdf) botonPdf.onclick = () => descargarPdfRequisicion(req.id);
+  }
+
+  function escaparTexto(t) {
+    const d = document.createElement('div');
+    d.textContent = t == null ? '' : String(t);
+    return d.innerHTML;
   }
 
   // Oculta los botones de generar y limpiar
@@ -22909,6 +23050,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.getElementById('grupo_duracion').style.display = 'none';
     document.getElementById('resultado-generacion').textContent = '';
     ultimaRequisicionGenerada = null;
+    document.getElementById('panel-subir-original').style.display = 'none';
     fijarAreaDelUsuario();
     reiniciarCargoYCentroCosto();
 
