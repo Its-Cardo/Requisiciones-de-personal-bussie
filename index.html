@@ -9840,8 +9840,7 @@ var supabase = function(e) {
     if (!firmas.length) { // todavía no se subió el PDF original: se muestran los pasos esperados
       firmas = [
         { tipo: 'jefe_inmediato', etiqueta: `Jefe inmediato (${r.jefe_inmediato_cargo || 'sin definir'})`, estado: 'pendiente' },
-        { tipo: 'director_operaciones', etiqueta: 'Director de Operaciones', estado: 'pendiente' },
-        { tipo: 'gerente_th', etiqueta: 'Gerente de Talento Humano', estado: 'pendiente' }
+        { tipo: 'director_operaciones', etiqueta: 'Director de Operaciones', estado: 'pendiente' }
       ];
       if (r.es_caso_especifico) firmas.push({ tipo: 'director_general', etiqueta: 'Director General', estado: 'pendiente' });
     }
@@ -9876,7 +9875,7 @@ var supabase = function(e) {
     });
 
     fases.push(r.estado === 'aprobada'
-      ? { titulo: 'Aprobada', estado: 'ok', fecha: r.aprobada_en, detalle: ['Requisición aprobada con todas las firmas.', fechaHora(r.aprobada_en)] }
+      ? { titulo: 'Aprobada', estado: 'ok', fecha: r.aprobada_en, detalle: ['Requisición aprobada con todas las firmas. Se envía a Talento Humano por fuera de la app.', fechaHora(r.aprobada_en)] }
       : { titulo: 'Aprobada', estado: terminado ? 'inactiva' : 'pendiente', detalle: [terminado ? 'El proceso terminó sin aprobarse.' : 'Se aprueba cuando estén todas las firmas.'] });
     return fases;
   }
@@ -10054,7 +10053,7 @@ var supabase = function(e) {
       });
     });
     const filasTiempo = [`<div class="tiempo-est"><span>Generada → Aprobada</span><strong>${promAprob === null ? '—' : formatoDias(dias(promAprob))}</strong></div>`]
-      .concat(['director_operaciones', 'gerente_th', 'director_general'].map(t => {
+      .concat(['director_operaciones', 'director_general'].map(t => {
         const arr = tiemposPorPaso[t] || [];
         const prom = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
         return `<div class="tiempo-est"><span>Firma ${escaparHtml(NOMBRE_CORTO_PASO[t])}</span><strong>${prom === null ? '—' : formatoDias(dias(prom))}</strong></div>`;
