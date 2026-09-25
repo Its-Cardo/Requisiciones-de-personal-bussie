@@ -9123,8 +9123,7 @@ var supabase = function(e) {
       <button id="btnVistaArea" class="acento" onclick="cambiarVistaRequisiciones('area')">Requisiciones del área</button>
       <button id="btnVistaMias" class="secundario" onclick="cambiarVistaRequisiciones('mias')">Mis requisiciones</button>
       <button id="btnVistaFirmas" class="secundario" onclick="cambiarVistaRequisiciones('firmas')">Firmas pendientes <span id="contadorPendientesTab" class="contador-pendientes vacio">0</span></button>
-      <button id="btnVistaSeguimiento" class="secundario" onclick="cambiarVistaRequisiciones('seguimiento')">Seguimiento</button>
-      <button id="btnVistaEstadisticas" class="secundario" onclick="cambiarVistaRequisiciones('estadisticas')">Estadísticas</button>
+      <button id="btnVistaEstadisticas" class="secundario" onclick="cambiarVistaRequisiciones('estadisticas')">Seguimiento y estadísticas</button>
     </div>
 
     <div id="listaRequisiciones"><div class="cargando">Cargando requisiciones...</div></div>
@@ -9135,29 +9134,6 @@ var supabase = function(e) {
         Descarga el PDF, fírmalo en Adobe Acrobat con tu ID digital (sin hacer otros cambios), guárdalo y súbelo aquí. La app verifica que sea el mismo documento, que tenga tu firma y que el certificado esté a tu nombre.
       </p>
       <div id="listaFirmasPendientes"></div>
-    </div>
-
-    <!-- Seguimiento compacto -->
-    <div id="vistaSeguimiento" class="hidden">
-      <div class="filtros-seg">
-        <select id="filtroEstadoSeg" onchange="dibujarSeguimiento()">
-          <option value="todas">Todos los estados</option>
-          <option value="en_proceso">En proceso</option>
-          <option value="aprobada">Aprobadas</option>
-          <option value="rechazada">Rechazadas</option>
-          <option value="cancelada">Canceladas</option>
-        </select>
-        <select id="filtroFaseSeg" onchange="dibujarSeguimiento()">
-          <option value="todas">Todas las fases</option>
-          <option value="original">Falta subir PDF original</option>
-          <option value="jefe_inmediato">Esperando Jefe inmediato</option>
-          <option value="director_operaciones">Esperando Director de Operaciones</option>
-          <option value="gerente_th">Esperando Gerente de Talento Humano</option>
-          <option value="director_general">Esperando Director General</option>
-        </select>
-        <input type="text" id="buscarSeg" oninput="dibujarSeguimiento()" placeholder="Buscar por número o cargo...">
-      </div>
-      <div id="listaSeguimiento"></div>
     </div>
 
     <!-- Estadísticas -->
@@ -10015,21 +9991,6 @@ var supabase = function(e) {
     cuerpo.classList.remove('hidden');
   }
 
-  function dibujarSeguimiento() {
-    const cont = document.getElementById('listaSeguimiento');
-    const estado = document.getElementById('filtroEstadoSeg').value;
-    const fase = document.getElementById('filtroFaseSeg').value;
-    const texto = normalizarTexto(document.getElementById('buscarSeg').value);
-    const lista = seguimientoDelAreaFiltrada().filter(r => {
-      if (estado === 'en_proceso' && !['generada', 'pendiente_firmas'].includes(r.estado)) return false;
-      if (!['todas', 'en_proceso'].includes(estado) && r.estado !== estado) return false;
-      if (fase !== 'todas' && faseActual(r) !== fase) return false;
-      if (texto && !normalizarTexto(`${r.numero_consecutivo}-${r.anio} ${r.nombre_cargo || ''}`).includes(texto)) return false;
-      return true;
-    });
-    cont.innerHTML = lista.length ? lista.map(r => filaSeguimientoHtml(r, 's')).join('') : '<p class="sin-roles">No hay requisiciones para mostrar.</p>';
-  }
-
   const normalizarTexto = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
 
   // ================== ESTADÍSTICAS ==================
@@ -10389,14 +10350,13 @@ var supabase = function(e) {
   // ---- Vista: requisiciones del área o solo las mías ----
   let vistaRequisiciones = 'area';
 
-  const BOTONES_VISTA = { area: 'btnVistaArea', mias: 'btnVistaMias', firmas: 'btnVistaFirmas', seguimiento: 'btnVistaSeguimiento', estadisticas: 'btnVistaEstadisticas' };
+  const BOTONES_VISTA = { area: 'btnVistaArea', mias: 'btnVistaMias', firmas: 'btnVistaFirmas', estadisticas: 'btnVistaEstadisticas' };
   function cambiarVistaRequisiciones(vista) {
     vistaRequisiciones = vista;
     Object.entries(BOTONES_VISTA).forEach(([v, id]) => { document.getElementById(id).className = v === vista ? 'acento' : 'secundario'; });
     const tabla = vista === 'area' || vista === 'mias';
     document.getElementById('listaRequisiciones').classList.toggle('hidden', !tabla);
     document.getElementById('vistaFirmas').classList.toggle('hidden', vista !== 'firmas');
-    document.getElementById('vistaSeguimiento').classList.toggle('hidden', vista !== 'seguimiento');
     document.getElementById('vistaEstadisticas').classList.toggle('hidden', vista !== 'estadisticas');
     refrescarVistaRequisiciones();
   }
@@ -10405,7 +10365,6 @@ var supabase = function(e) {
     if (vistaRequisiciones === 'area' || vistaRequisiciones === 'mias') { cargarRequisiciones(); return; }
     await cargarDatosSeguimiento();
     if (vistaRequisiciones === 'firmas') dibujarFirmasPendientes();
-    else if (vistaRequisiciones === 'seguimiento') dibujarSeguimiento();
     else dibujarEstadisticas();
   }
 
