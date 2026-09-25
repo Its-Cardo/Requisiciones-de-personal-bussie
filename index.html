@@ -8987,7 +8987,11 @@ var supabase = function(e) {
     .progreso-firmas .fecha-paso { font-size: 10px; color: #64748b; margin-top: 2px; }
     .detalle-paso { background: #fff; border: 1px solid #DCE3EA; border-radius: 8px; padding: 10px 12px; font-size: 13px; color: #334155; margin: 8px 0 4px; }
     .detalle-paso .titulo-detalle { font-weight: 700; margin-bottom: 4px; }
-    #btnVistaFirmas .contador-pendientes { margin-left: 4px; }
+    #btnVistaFirmas .contador-pendientes, #btnVistaMias .contador-pendientes { margin-left: 4px; }
+    .con-punto { position: relative; }
+    .con-punto::after { content: ''; position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; border-radius: 50%; background: #DC2626; border: 2px solid #fff; }
+    .aviso-sin-pdf { background: #FDE2E1; border: 1px solid #F2B8B5; border-left: 5px solid #B3402F; color: #7A2419; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; }
+    .aviso-sin-pdf a { color: #7A2419; font-weight: 700; }
     /* Seguimiento compacto */
     .filtros-seg { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
     .filtros-seg select, .filtros-seg input { width: auto; flex: 1 1 200px; padding: 6px 10px; font-size: 13px; border: 1px solid #B7C2CE; border-radius: 4px; }
@@ -9121,7 +9125,7 @@ var supabase = function(e) {
 
     <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
       <button id="btnVistaArea" class="acento" onclick="cambiarVistaRequisiciones('area')">Requisiciones del área</button>
-      <button id="btnVistaMias" class="secundario" onclick="cambiarVistaRequisiciones('mias')">Mis requisiciones</button>
+      <button id="btnVistaMias" class="secundario" onclick="cambiarVistaRequisiciones('mias')">Mis requisiciones <span id="contadorSinPdf" class="contador-pendientes hidden" title="Requisiciones sin PDF subido">0</span></button>
       <button id="btnVistaFirmas" class="secundario" onclick="cambiarVistaRequisiciones('firmas')">Firmas pendientes <span id="contadorPendientesTab" class="contador-pendientes vacio">0</span></button>
       <button id="btnVistaEstadisticas" class="secundario" onclick="cambiarVistaRequisiciones('estadisticas')">Seguimiento y estadísticas</button>
     </div>
@@ -9757,13 +9761,21 @@ var supabase = function(e) {
         <td><span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span></td>
         <td>${formatearFecha(r.creado_en)}</td>
         <td style="white-space:nowrap;">
-          <button class="secundario" style="padding:4px 12px; font-size:12px;" onclick="verRequisicion('${escaparHtml(String(r.id))}')">Ver</button>
+          <button class="secundario ${r.estado === 'generada' && r.creado_por === usuarioActual?.id ? 'con-punto' : ''}" style="padding:4px 12px; font-size:12px;" onclick="verRequisicion('${escaparHtml(String(r.id))}')" ${r.estado === 'generada' && r.creado_por === usuarioActual?.id ? 'title="Falta subir el PDF para iniciar las firmas"' : ''}>Ver</button>
           ${puedeCancelar(r) ? `<button class="peligro" style="margin-left:6px;" onclick="abrirModalCancelar('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">Cancelar</button>` : ''}
         </td>
       </tr>
     `).join('');
 
-    cont.innerHTML = `
+    // En "Mis requisiciones": aviso de las que quedaron sin subir el PDF
+    let aviso = '';
+    const sinPdf = vistaRequisiciones === 'mias' ? filas.filter(r => r.estado === 'generada' && r.creado_por === usuarioActual?.id) : [];
+    if (sinPdf.length) {
+      const enlaces = sinPdf.map(r => `<a href="#" onclick="verRequisicion('${escaparHtml(String(r.id))}'); return false;">#${r.numero_consecutivo}-${r.anio}</a> (${escaparHtml(r.datos_formulario?.nombre_cargo || '')})`).join(', ');
+      aviso = `<div class="aviso-sin-pdf">⚠️ ${sinPdf.length === 1 ? 'Quedó pendiente subir el PDF de la requisición' : 'Quedó pendiente subir el PDF de las requisiciones'} ${enlaces}. Sin ese archivo no inicia el proceso de firmas. Entra a <strong>Ver</strong> para subirlo.</div>`;
+    }
+
+    cont.innerHTML = aviso + `
       <table class="tabla-requisiciones">
         <thead>
           <tr>
@@ -9805,6 +9817,10 @@ var supabase = function(e) {
     const { data, error } = await sb.rpc('seguimiento_requisiciones');
     datosSeguimiento = error ? [] : (data || []);
     const n = datosSeguimiento.filter(r => r.me_toca_firmar).length;
+    const sinPdf = datosSeguimiento.filter(r => r.es_mia && r.estado === 'generada').length;
+    const elSinPdf = document.getElementById('contadorSinPdf');
+    elSinPdf.textContent = sinPdf;
+    elSinPdf.classList.toggle('hidden', sinPdf === 0);
     ['contadorPendientes', 'contadorPendientesTab'].forEach(id => {
       const el = document.getElementById(id);
       el.textContent = n;
@@ -10361,8 +10377,8 @@ var supabase = function(e) {
   }
 
   async function refrescarVistaRequisiciones() {
+    await cargarDatosSeguimiento(); // también actualiza los contadores de los botones
     if (vistaRequisiciones === 'area' || vistaRequisiciones === 'mias') { cargarRequisiciones(); return; }
-    await cargarDatosSeguimiento();
     if (vistaRequisiciones === 'firmas') dibujarFirmasPendientes();
     else dibujarEstadisticas();
   }

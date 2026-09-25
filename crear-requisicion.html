@@ -22945,9 +22945,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     zona.style.cssText = 'margin:0 0 18px;';
     contenedor.querySelector('h1 + p').parentNode.insertBefore(zona, document.getElementById('reqForm'));
 
+    // Si quedó pendiente subir el PDF, el recuadro para subirlo va arriba del formulario.
+    // Si ya se subió (la requisición ya no está "Generada"), no aparece.
     if (req.estado === 'generada' && req.creado_por === usuarioActual?.id) {
-      zona.innerHTML = '<div style="font-size:13px; color:#92400E; background:#FEF3C7; border-radius:6px; padding:10px 12px;">Esta requisición todavía no ha iniciado las firmas. Sube el PDF original al final de la página.</div>';
-      document.getElementById('reqForm').after(document.getElementById('panel-subir-original'));
+      const panel = document.getElementById('panel-subir-original');
+      panel.style.borderColor = '#B3402F';
+      panel.style.background = '#FDF2F1';
+      panel.querySelector('div').textContent = '⚠️ Pendiente: sube el PDF para iniciar las firmas';
+      zona.appendChild(panel);
       mostrarPanelSubirOriginal(req.id);
       return;
     }
