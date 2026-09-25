@@ -8934,6 +8934,14 @@ var supabase = function(e) {
 
     .form-asignar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 10px; }
     .form-asignar .form-group { margin-bottom: 0; flex: 1; min-width: 160px; }
+    /* Gestión de áreas: personas en cuadrícula (3 por fila en pantallas anchas, 2 o 1 en más angostas) */
+    #listaPersonasArea { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+    #listaPersonasArea > .cargando, #listaPersonasArea > .sin-roles, #listaPersonasArea > .error-msg { grid-column: 1 / -1; }
+    #listaPersonasArea .persona-card { margin-bottom: 0; padding: 14px 16px; display: flex; flex-direction: column; }
+    #listaPersonasArea .form-asignar { margin-top: auto; padding-top: 10px; flex-wrap: nowrap; align-items: center; }
+    #listaPersonasArea .form-asignar .form-group { min-width: 0; }
+    #listaPersonasArea .form-asignar select { padding: 6px 8px; font-size: 13px; }
+    #listaPersonasArea .form-asignar button { padding: 7px 12px; font-size: 13px; white-space: nowrap; }
 
     .cargando { color: #64748B; font-style: italic; padding: 10px 0; }
 
