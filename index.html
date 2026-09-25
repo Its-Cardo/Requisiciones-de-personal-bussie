@@ -9017,18 +9017,11 @@ var supabase = function(e) {
           <div class="desc" id="descVerRequisiciones">Consulta el estado de las requisiciones de tu área</div>
         </div>
       </div>
-      <div class="inicio-boton solo-developer hidden" id="botonAsignarRoles" onclick="mostrarSeccionAreas()">
-        <div class="icono">🔑</div>
-        <div class="texto">
-          <div class="titulo">Asignar roles por área</div>
-          <div class="desc">Solo visible para Developer</div>
-        </div>
-      </div>
-      <div class="inicio-boton solo-developer hidden" id="botonOrganigrama" onclick="mostrarSeccionOrganigrama()">
+      <div class="inicio-boton solo-developer hidden" id="botonAsignarRoles" onclick="mostrarSeccionOrganigrama()">
         <div class="icono">🗂️</div>
         <div class="texto">
-          <div class="titulo">Organigrama</div>
-          <div class="desc">Cargos de cada área, nivel y jefe inmediato. Solo visible para Developer</div>
+          <div class="titulo">Gestión de áreas</div>
+          <div class="desc">Cargos, jefes inmediatos, personas y roles de cada área. Solo visible para Developer</div>
         </div>
       </div>
     </div>
@@ -9080,50 +9073,13 @@ var supabase = function(e) {
     </div>
   </div>
 
-  <!-- ============ SECCIÓN: ORGANIGRAMA (solo Developer) ============ -->
+  <!-- ============ SECCIÓN: GESTIÓN DE ÁREAS (solo Developer) ============ -->
   <div id="seccionOrganigrama" class="hidden">
     <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
-    <div class="section-title">Organigrama</div>
-    <p style="color:#64748b; font-size:13px; margin-top:-8px;">
-      Cargos de cada área (ordenados por nivel jerárquico) y el cargo de su jefe inmediato. El jefe inmediato es el que se sugiere para firma en el formulario. Los cambios se guardan al instante.
-    </p>
-    <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
-      <label for="selectAreaOrganigrama" style="font-size:14px;">Área:</label>
-      <select id="selectAreaOrganigrama" onchange="dibujarOrganigrama()" style="padding:6px 10px; border:1px solid #B7C2CE; border-radius:4px; font-size:14px;"></select>
-      <span id="mensajeOrganigrama" style="font-size:13px;"></span>
+    <div class="cabecera-areas">
+      <div class="section-title">Gestión de áreas</div>
+      <button type="button" class="secundario" onclick="toggleFormCrearUsuario()" id="botonToggleCrearUsuario">+ Crear usuario</button>
     </div>
-    <div id="tablaOrganigrama"><div class="cargando">Cargando organigrama...</div></div>
-
-    <div style="margin-top:18px; padding:14px; border:1px dashed #B7C2CE; border-radius:8px;">
-      <div style="font-weight:600; font-size:14px; margin-bottom:10px; color:#10243E;">Agregar un cargo a esta área</div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <select id="nuevoCargoOrganigrama" style="flex:2; min-width:220px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
-        <select id="nuevoNivelOrganigrama" style="display:none; flex:0 0 110px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
-        <select id="nuevoJefeOrganigrama" style="flex:2; min-width:220px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
-        <button class="acento" onclick="agregarCargoOrganigrama()">Agregar</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============ SECCIÓN: DETALLE DE REQUISICIÓN (solo lectura) ============ -->
-  <div id="seccionDetalleRequisicion" class="hidden">
-    <button class="volver" onclick="mostrarSeccionVerRequisiciones()">&larr; Volver a la lista</button>
-    <div class="section-title">Consultar requisición</div>
-    <iframe id="iframeDetalleRequisicion"
-      style="width:100%; height:1400px; border:1px solid #DCE3EA; border-radius:8px;"
-      title="Consultar requisición"></iframe>
-  </div>
-
-  <!-- ============ SECCIÓN: ÁREAS (asignar roles, solo Developer) ============ -->
-  <div id="seccionAreas" class="hidden">
-    <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
-
-    <!-- Vista de Áreas -->
-    <div id="vistaAreas">
-      <div class="cabecera-areas">
-        <div class="section-title">Áreas</div>
-        <button type="button" class="secundario" onclick="toggleFormCrearUsuario()" id="botonToggleCrearUsuario">+ Crear usuario</button>
-      </div>
 
       <div class="panel-crear-usuario hidden" id="panelCrearUsuario">
         <h2 style="font-size:16px; margin-bottom:4px;">Crear usuario</h2>
@@ -9174,16 +9130,43 @@ var supabase = function(e) {
         <div class="ok-msg" id="crearUsuarioOk"></div>
       </div>
 
-      <div id="listaAreas" class="grid-areas"><div class="cargando">Cargando áreas...</div></div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+      <label for="selectAreaOrganigrama" style="font-size:14px;">Área:</label>
+      <select id="selectAreaOrganigrama" onchange="cambiarAreaGestion()" style="padding:6px 10px; border:1px solid #B7C2CE; border-radius:4px; font-size:14px;"></select>
+      <span id="mensajeOrganigrama" style="font-size:13px;"></span>
     </div>
 
-    <!-- Vista de detalle de un Área -->
-    <div id="vistaAreaDetalle" class="hidden">
-      <button class="volver" onclick="volverAAreas()">&larr; Volver a Áreas</button>
-      <div class="section-title" id="tituloAreaDetalle">Área</div>
-      <div id="listaPersonasArea"><div class="cargando">Cargando personas...</div></div>
+    <h2 style="font-size:17px; margin:18px 0 4px; color:#10243E;">Cargos del área</h2>
+    <p style="color:#64748b; font-size:13px; margin:0 0 10px;">
+      Ordenados por nivel jerárquico. El jefe inmediato es el que se sugiere para firma en el formulario. Los cambios se guardan al instante.
+    </p>
+    <div id="tablaOrganigrama"><div class="cargando">Cargando organigrama...</div></div>
+
+    <div style="margin-top:18px; padding:14px; border:1px dashed #B7C2CE; border-radius:8px;">
+      <div style="font-weight:600; font-size:14px; margin-bottom:10px; color:#10243E;">Agregar un cargo a esta área</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <select id="nuevoCargoOrganigrama" style="flex:2; min-width:220px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
+        <select id="nuevoNivelOrganigrama" style="display:none; flex:0 0 110px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
+        <select id="nuevoJefeOrganigrama" style="flex:2; min-width:220px; padding:6px; border:1px solid #B7C2CE; border-radius:4px;"></select>
+        <button class="acento" onclick="agregarCargoOrganigrama()">Agregar</button>
+      </div>
     </div>
+
+    <h2 style="font-size:17px; margin:28px 0 4px; color:#10243E;">Personas del área</h2>
+    <p style="color:#64748b; font-size:13px; margin:0 0 10px;">Cargo y roles de cada persona. Los cambios se guardan al instante.</p>
+    <div id="listaPersonasArea"><div class="cargando">Cargando personas...</div></div>
   </div>
+
+  <!-- ============ SECCIÓN: DETALLE DE REQUISICIÓN (solo lectura) ============ -->
+  <div id="seccionDetalleRequisicion" class="hidden">
+    <button class="volver" onclick="mostrarSeccionVerRequisiciones()">&larr; Volver a la lista</button>
+    <div class="section-title">Consultar requisición</div>
+    <iframe id="iframeDetalleRequisicion"
+      style="width:100%; height:1400px; border:1px solid #DCE3EA; border-radius:8px;"
+      title="Consultar requisición"></iframe>
+  </div>
+
+  <!-- ============ SECCIÓN: ÁREAS (asignar roles, solo Developer) ============ -->
 </div>
 
 <script>
@@ -9273,7 +9256,6 @@ var supabase = function(e) {
     document.getElementById('rolesUsuarioActual').textContent = nombresRoles.length ? nombresRoles.join(', ') : 'Sin roles asignados';
 
     document.getElementById('botonAsignarRoles').classList.toggle('hidden', !puedeGestionarRoles);
-    document.getElementById('botonOrganigrama').classList.toggle('hidden', !puedeGestionarRoles);
     document.getElementById('descVerRequisiciones').textContent = puedeVerTodasLasAreas
       ? 'Consulta el estado de las requisiciones, filtrando por área'
       : 'Consulta el estado de las requisiciones de tu área';
@@ -9309,7 +9291,7 @@ var supabase = function(e) {
   // ================== NAVEGACIÓN ENTRE SECCIONES ==================
 
   function ocultarTodasLasSecciones() {
-    ['seccionInicio', 'seccionCrearRequisicion', 'seccionVerRequisiciones', 'seccionDetalleRequisicion', 'seccionAreas', 'seccionOrganigrama'].forEach(id => {
+    ['seccionInicio', 'seccionCrearRequisicion', 'seccionVerRequisiciones', 'seccionDetalleRequisicion', 'seccionOrganigrama'].forEach(id => {
       document.getElementById(id).classList.add('hidden');
     });
   }
@@ -9355,39 +9337,6 @@ var supabase = function(e) {
     cargarRequisiciones();
   }
 
-  function mostrarSeccionAreas() {
-    ocultarTodasLasSecciones();
-    document.getElementById('seccionAreas').classList.remove('hidden');
-    volverAAreas();
-    cargarAreas();
-  }
-
-  // ================== ÁREAS (gestión de roles, solo Developer) ==================
-
-  async function cargarAreas() {
-    const cont = document.getElementById('listaAreas');
-    cont.innerHTML = '<div class="cargando">Cargando áreas...</div>';
-
-    if (!catalogoAreas.length) await cargarCatalogoAreas();
-    if (!organigramaCargos.length) await cargarDatosOrganigrama();
-
-    llenarSelectAreaNuevoUsuario();
-    llenarSelectCargoNuevoUsuario();
-
-    if (!catalogoAreas.length) {
-      cont.innerHTML = '<p class="sin-roles">No hay áreas registradas.</p>';
-      return;
-    }
-
-    cont.innerHTML = '';
-    catalogoAreas.forEach(area => {
-      const div = document.createElement('div');
-      div.className = 'tarjeta-area';
-      div.onclick = () => abrirArea(area.id, area.nombre);
-      div.innerHTML = `<h3>${escaparHtml(area.nombre)}</h3><p>Ver personas y roles</p>`;
-      cont.appendChild(div);
-    });
-  }
 
   // ================== CREAR USUARIO (solo Developer) ==================
 
@@ -9434,6 +9383,10 @@ var supabase = function(e) {
       llenarSelectCargoNuevoUsuario();
       document.getElementById('crearUsuarioError').textContent = '';
       document.getElementById('crearUsuarioOk').textContent = '';
+    } else {
+      // Al abrir, se propone el área que se está viendo
+      document.getElementById('nuevoUsuarioArea').value = document.getElementById('selectAreaOrganigrama').value || '';
+      llenarSelectCargoNuevoUsuario();
     }
   }
 
@@ -9497,20 +9450,6 @@ var supabase = function(e) {
     }
   }
 
-  function volverAAreas() {
-    areaActualId = null;
-    document.getElementById('vistaAreaDetalle').classList.add('hidden');
-    document.getElementById('vistaAreas').classList.remove('hidden');
-  }
-
-  async function abrirArea(areaId, areaNombre) {
-    areaActualId = areaId;
-    document.getElementById('vistaAreas').classList.add('hidden');
-    document.getElementById('vistaAreaDetalle').classList.remove('hidden');
-    document.getElementById('tituloAreaDetalle').textContent = areaNombre;
-    await cargarPersonasDeArea(areaId);
-  }
-
   async function cargarPersonasDeArea(areaId) {
     const cont = document.getElementById('listaPersonasArea');
     cont.innerHTML = '<div class="cargando">Cargando personas...</div>';
@@ -9525,6 +9464,9 @@ var supabase = function(e) {
       cont.innerHTML = '<div class="error-msg">Error al cargar personas: ' + error.message + '</div>';
       return;
     }
+
+    personasAreaGestion = data;
+    dibujarOrganigrama();
 
     if (!data.length) {
       cont.innerHTML = '<p class="sin-roles">No hay personas registradas en esta área todavía.</p>';
@@ -9606,6 +9548,11 @@ var supabase = function(e) {
     select.disabled = false;
     msg.textContent = error ? 'No se pudo guardar: ' + error.message : 'Guardado ✓';
     msg.style.color = error ? '#b91c1c' : '#15803d';
+    if (!error) {
+      const persona = personasAreaGestion.find(p => p.id === usuarioId);
+      if (persona) persona.cargo_id = select.value ? Number(select.value) : null;
+      dibujarOrganigrama();
+    }
     if (!error) setTimeout(() => { msg.textContent = ''; }, 2500);
   }
 
@@ -9747,12 +9694,24 @@ var supabase = function(e) {
     if (!catalogoAreas.length) await cargarCatalogoAreas();
 
     const selectArea = document.getElementById('selectAreaOrganigrama');
+    if (!catalogoRoles.length) await cargarCatalogoRoles();
     if (!selectArea.options.length) {
       [...catalogoAreas].sort((x, y) => x.nombre.localeCompare(y.nombre, 'es'))
         .forEach(a => selectArea.appendChild(new Option(a.nombre, a.id)));
     }
     await cargarDatosOrganigrama();
+    llenarSelectAreaNuevoUsuario();
+    llenarSelectCargoNuevoUsuario();
+    await cambiarAreaGestion();
+  }
+
+  // Al elegir un área: se dibujan sus cargos y sus personas
+  let personasAreaGestion = []; // personas del área elegida (para la columna "Personas")
+  async function cambiarAreaGestion() {
+    areaActualId = Number(document.getElementById('selectAreaOrganigrama').value);
+    personasAreaGestion = [];
     dibujarOrganigrama();
+    await cargarPersonasDeArea(areaActualId);
   }
 
   async function cargarDatosOrganigrama() {
@@ -9805,12 +9764,13 @@ var supabase = function(e) {
       cont.innerHTML = `
         <div style="overflow-x:auto;">
         <table class="tabla-requisiciones">
-          <thead><tr><th>Cargo</th><th>Jefe inmediato</th><th style="width:80px;"></th></tr></thead>
+          <thead><tr><th>Cargo</th><th>Jefe inmediato</th><th>Personas</th><th style="width:80px;"></th></tr></thead>
           <tbody>
             ${filas.map(f => `
               <tr>
                 <td>${escaparHtml(nombreCargoOrg(f.cargo_id))}</td>
                 <td><select onchange="actualizarFilaOrganigrama(${f.area_id}, ${f.cargo_id}, 'jefe_cargo_id', this.value)" style="width:100%; padding:4px; border:1px solid #B7C2CE; border-radius:4px;">${opcionesJefeHtml(f.area_id, f.cargo_id, f.jefe_cargo_id)}</select></td>
+                <td style="font-size:13px;">${personasConCargoHtml(f.cargo_id)}</td>
                 <td><button class="peligro" onclick="quitarCargoOrganigrama(${f.area_id}, ${f.cargo_id})">Quitar</button></td>
               </tr>`).join('')}
           </tbody>
@@ -9824,6 +9784,11 @@ var supabase = function(e) {
       organigramaCargos.filter(c => !enArea.has(c.id)).map(c => `<option value="${c.id}">${escaparHtml(c.nombre)}</option>`).join('');
     document.getElementById('nuevoNivelOrganigrama').innerHTML = opcionesNivelHtml('').replace('>—<', '>Nivel<');
     document.getElementById('nuevoJefeOrganigrama').innerHTML = opcionesJefeHtml(areaId, null, null).replace('— Sin jefe —', 'Jefe inmediato...');
+  }
+
+  function personasConCargoHtml(cargoId) {
+    const nombres = personasAreaGestion.filter(p => p.cargo_id === cargoId).map(p => escaparHtml(p.nombre_completo));
+    return nombres.length ? nombres.join('<br>') : '<span style="color:#94a3b8;">—</span>';
   }
 
   async function actualizarFilaOrganigrama(areaId, cargoId, campo, valor) {
