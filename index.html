@@ -8969,6 +8969,24 @@ var supabase = function(e) {
     .tarjeta-pendiente .detalle-pend { font-size: 13px; color: #64748b; margin: 4px 0 8px; }
     .tarjeta-pendiente .acciones-pend { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
     .tarjeta-pendiente .acciones-pend input[type=file] { font-size: 13px; max-width: 100%; }
+    .tarjeta-pendiente.me-toca { border-left-color: #2563EB; }
+    /* Barra de progreso con bolitas */
+    .progreso-firmas { display: flex; align-items: flex-start; margin: 14px 0 4px; overflow-x: auto; padding-bottom: 4px; }
+    .progreso-firmas .paso { display: flex; flex-direction: column; align-items: center; flex: 0 0 92px; text-align: center; }
+    .progreso-firmas .linea { flex: 1 1 auto; min-width: 14px; height: 3px; background: #CBD5E1; margin-top: 13px; border-radius: 2px; }
+    .progreso-firmas .linea.ok { background: #16A34A; }
+    .progreso-firmas .bolita { width: 28px; height: 28px; border-radius: 50%; border: 3px solid #CBD5E1; background: #fff; box-sizing: border-box; cursor: pointer; padding: 0; transition: transform .1s; }
+    .progreso-firmas .bolita:hover { transform: scale(1.12); }
+    .progreso-firmas .bolita.ok { border-color: #16A34A; }
+    .progreso-firmas .bolita.pendiente { border-color: #2563EB; }
+    .progreso-firmas .bolita.actual { box-shadow: 0 0 0 4px rgba(37,99,235,.18); }
+    .progreso-firmas .bolita.rechazada { border-color: #DC2626; }
+    .progreso-firmas .bolita.inactiva { border-color: #CBD5E1; }
+    .progreso-firmas .bolita.seleccionada { transform: scale(1.12); }
+    .progreso-firmas .nombre-paso { font-size: 11px; color: #334155; margin-top: 6px; line-height: 1.25; }
+    .progreso-firmas .fecha-paso { font-size: 10px; color: #64748b; margin-top: 2px; }
+    .detalle-paso { background: #fff; border: 1px solid #DCE3EA; border-radius: 8px; padding: 10px 12px; font-size: 13px; color: #334155; margin: 8px 0 4px; }
+    .detalle-paso .titulo-detalle { font-weight: 700; margin-bottom: 4px; }
     .fondo-modal { position: fixed; inset: 0; background: rgba(16,36,62,0.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
     .caja-modal { background: #fff; border-radius: 10px; padding: 22px; width: 100%; max-width: 460px; box-shadow: 0 10px 30px rgba(16,36,62,0.25); }
     .caja-modal textarea { width: 100%; min-height: 90px; padding: 8px; border: 1px solid #B7C2CE; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 14px; }
@@ -9035,8 +9053,8 @@ var supabase = function(e) {
       <div class="inicio-boton" id="botonPendientesFirma" onclick="mostrarSeccionPendientes()">
         <div class="icono">✍️</div>
         <div class="texto">
-          <div class="titulo">Pendientes por firmar <span id="contadorPendientes" class="contador-pendientes vacio">0</span></div>
-          <div class="desc">Requisiciones que esperan tu firma</div>
+          <div class="titulo">Seguimiento de requisiciones <span id="contadorPendientes" class="contador-pendientes vacio" title="Requisiciones que esperan tu firma">0</span></div>
+          <div class="desc">Avance de las firmas de tus requisiciones y de las que te toca firmar</div>
         </div>
       </div>
       <div class="inicio-boton solo-developer hidden" id="botonAsignarRoles" onclick="mostrarSeccionOrganigrama()">
@@ -9098,10 +9116,21 @@ var supabase = function(e) {
   <!-- ============ SECCIÓN: PENDIENTES POR FIRMAR ============ -->
   <div id="seccionPendientes" class="hidden">
     <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
-    <div class="section-title">Pendientes por firmar</div>
+    <div class="section-title">Seguimiento de requisiciones</div>
     <p style="color:#64748b; font-size:13px; margin-top:-8px;">
-      Para firmar: descarga el PDF, fírmalo en Adobe Acrobat con tu ID digital (sin hacer otros cambios), guárdalo y súbelo aquí. La app verifica que sea el mismo documento, que tenga tu firma y que el certificado esté a tu nombre.
+      Haz clic en cada bolita para ver quién firmó y cuándo. Para firmar: descarga el PDF, fírmalo en Adobe Acrobat con tu ID digital (sin hacer otros cambios), guárdalo y súbelo aquí.
     </p>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+      <label for="filtroSeguimiento" style="font-size:14px;">Mostrar:</label>
+      <select id="filtroSeguimiento" onchange="dibujarSeguimiento()" style="padding:6px 10px; border:1px solid #B7C2CE; border-radius:4px; font-size:14px; width:auto;">
+        <option value="todas">Todas</option>
+        <option value="me_toca">Me toca firmar</option>
+        <option value="en_proceso">En proceso</option>
+        <option value="aprobada">Aprobadas</option>
+        <option value="rechazada">Rechazadas</option>
+        <option value="cancelada">Canceladas</option>
+      </select>
+    </div>
     <div id="listaPendientes"><div class="cargando">Cargando...</div></div>
 
     <!-- Ventana para rechazar -->
@@ -9758,32 +9787,171 @@ var supabase = function(e) {
     await cargarPendientes();
   }
 
+  let datosSeguimiento = [];
+
   async function cargarPendientes() {
     const cont = document.getElementById('listaPendientes');
     cont.innerHTML = '<div class="cargando">Cargando...</div>';
-    const { data, error } = await sb.rpc('mis_firmas_pendientes');
-    if (error) { cont.innerHTML = '<div class="error-msg">No se pudieron cargar los pendientes: ' + escaparHtml(error.message) + '</div>'; return; }
+    const { data, error } = await sb.rpc('seguimiento_requisiciones');
+    if (error) { cont.innerHTML = '<div class="error-msg">No se pudo cargar el seguimiento: ' + escaparHtml(error.message) + '</div>'; return; }
+    datosSeguimiento = data || [];
     actualizarContadorPendientes();
-    if (!data.length) { cont.innerHTML = '<p class="sin-roles">No tienes requisiciones pendientes por firmar.</p>'; return; }
-    cont.innerHTML = data.map(p => {
-      const id = escaparHtml(String(p.requisicion_id));
-      return `
-      <div class="tarjeta-pendiente">
-        <div class="titulo-pend">#${p.numero_consecutivo}-${p.anio} · ${escaparHtml(p.nombre_cargo || '')}</div>
-        <div class="detalle-pend">${escaparHtml(p.area || '')} · ${escaparHtml(p.tipo_requisicion || '')} · Solicitada por ${escaparHtml(p.nombre_solicitante || '')} el ${formatearFecha(p.creado_en)}</div>
-        <div style="font-size:14px;">Te corresponde firmar como: <strong>${escaparHtml(p.etiqueta)}</strong></div>
+    dibujarSeguimiento();
+  }
+
+  const fechaHora = (iso) => iso ? new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const NOMBRE_CORTO_PASO = {
+    jefe_inmediato: 'Jefe inmediato', director_operaciones: 'Director de Operaciones',
+    gerente_th: 'Gerente de Talento Humano', director_general: 'Director General'
+  };
+
+  // Arma las fases de la barra: Generada → firmas → Aprobada
+  function fasesDeRequisicion(r) {
+    const fases = [{
+      titulo: 'Generada', estado: 'ok', fecha: r.creado_en,
+      detalle: [`Creada por ${r.nombre_solicitante || '—'}`, fechaHora(r.creado_en)]
+    }];
+
+    let firmas = r.firmas || [];
+    if (!firmas.length) { // todavía no se subió el PDF original: se muestran los pasos esperados
+      firmas = [
+        { tipo: 'jefe_inmediato', etiqueta: `Jefe inmediato (${r.jefe_inmediato_cargo || 'sin definir'})`, estado: 'pendiente' },
+        { tipo: 'director_operaciones', etiqueta: 'Director de Operaciones', estado: 'pendiente' },
+        { tipo: 'gerente_th', etiqueta: 'Gerente de Talento Humano', estado: 'pendiente' }
+      ];
+      if (r.es_caso_especifico) firmas.push({ tipo: 'director_general', etiqueta: 'Director General', estado: 'pendiente' });
+    }
+
+    let terminado = false; // después de un rechazo o una cancelación, lo que sigue queda inactivo
+    firmas.forEach((f, i) => {
+      const fase = { titulo: NOMBRE_CORTO_PASO[f.tipo] || f.etiqueta, fecha: f.firmado_en, detalle: [f.etiqueta] };
+      if (f.estado === 'firmada') {
+        fase.estado = 'ok';
+        fase.detalle = [f.etiqueta, `Firmó: ${f.firmado_por_nombre || '—'}`, f.nombre_certificado ? `Certificado: ${f.nombre_certificado}` : '', fechaHora(f.firmado_en)];
+      } else if (f.estado === 'rechazada') {
+        fase.estado = 'rechazada';
+        fase.detalle = [f.etiqueta, `Rechazó: ${f.firmado_por_nombre || '—'}`, fechaHora(f.firmado_en), `Motivo: ${f.motivo_rechazo || '—'}`];
+        terminado = true;
+      } else if (terminado) {
+        fase.estado = 'inactiva';
+        fase.detalle = [f.etiqueta, 'No aplica: el proceso terminó antes de este paso.'];
+      } else if (r.estado === 'cancelada') {
+        fase.estado = 'rechazada';
+        fase.fecha = r.cancelado_en;
+        fase.detalle = [f.etiqueta, `Requisición cancelada${r.cancelado_por_nombre ? ' por ' + r.cancelado_por_nombre : ''}`, fechaHora(r.cancelado_en), `Motivo: ${r.motivo_cancelacion || '—'}`];
+        terminado = true;
+      } else {
+        fase.estado = 'pendiente';
+        const esActual = r.estado === 'pendiente_firmas' ? f.paso === r.paso_actual : (r.estado === 'generada' && i === 0);
+        fase.actual = esActual;
+        fase.detalle = [f.etiqueta, r.estado === 'generada' && i === 0
+          ? 'Falta subir el PDF original para iniciar las firmas.'
+          : (esActual ? 'Esperando esta firma.' : 'Pendiente.')];
+      }
+      fases.push(fase);
+    });
+
+    fases.push(r.estado === 'aprobada'
+      ? { titulo: 'Aprobada', estado: 'ok', fecha: r.aprobada_en, detalle: ['Requisición aprobada con todas las firmas.', fechaHora(r.aprobada_en)] }
+      : { titulo: 'Aprobada', estado: terminado ? 'inactiva' : 'pendiente', detalle: [terminado ? 'El proceso terminó sin aprobarse.' : 'Se aprueba cuando estén todas las firmas.'] });
+    return fases;
+  }
+
+  function barraDeProgresoHtml(r, idx) {
+    const fases = fasesDeRequisicion(r);
+    return '<div class="progreso-firmas">' + fases.map((f, i) => {
+      const linea = i === 0 ? '' : `<div class="linea ${fases[i - 1].estado === 'ok' && f.estado !== 'inactiva' ? 'ok' : ''}"></div>`;
+      const fecha = f.fecha && f.estado !== 'pendiente' ? `<div class="fecha-paso">${new Date(f.fecha).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>` : '';
+      return linea + `
+        <div class="paso">
+          <button type="button" class="bolita ${f.estado} ${f.actual ? 'actual' : ''}" title="${escaparHtml(f.titulo)}" onclick="mostrarDetalleFase(${idx}, ${i}, this)"></button>
+          <div class="nombre-paso">${escaparHtml(f.titulo)}</div>${fecha}
+        </div>`;
+    }).join('') + '</div>' + `<div id="detalle-fase-${idx}"></div>`;
+  }
+
+  function mostrarDetalleFase(idx, i, boton) {
+    const caja = document.getElementById('detalle-fase-' + idx);
+    const tarjeta = boton.closest('.tarjeta-pendiente');
+    const yaAbierta = boton.classList.contains('seleccionada');
+    tarjeta.querySelectorAll('.bolita.seleccionada').forEach(b => b.classList.remove('seleccionada'));
+    if (yaAbierta) { caja.innerHTML = ''; return; }
+    boton.classList.add('seleccionada');
+    const f = fasesDeRequisicion(datosSeguimientoFiltrados[idx])[i];
+    const lineas = f.detalle.filter(Boolean);
+    caja.innerHTML = `<div class="detalle-paso"><div class="titulo-detalle">${escaparHtml(f.titulo)}</div>${lineas.slice(1).map(l => `<div>${escaparHtml(l)}</div>`).join('') || `<div>${escaparHtml(lineas[0] || '')}</div>`}</div>`;
+  }
+
+  let datosSeguimientoFiltrados = [];
+  function dibujarSeguimiento() {
+    const cont = document.getElementById('listaPendientes');
+    const filtro = document.getElementById('filtroSeguimiento').value;
+    datosSeguimientoFiltrados = datosSeguimiento.filter(r => {
+      if (filtro === 'me_toca') return r.me_toca_firmar;
+      if (filtro === 'en_proceso') return r.estado === 'generada' || r.estado === 'pendiente_firmas';
+      if (filtro === 'todas') return true;
+      return r.estado === filtro;
+    });
+    // Primero las que esperan mi firma
+    datosSeguimientoFiltrados.sort((a, b) => (b.me_toca_firmar ? 1 : 0) - (a.me_toca_firmar ? 1 : 0));
+    if (!datosSeguimientoFiltrados.length) { cont.innerHTML = '<p class="sin-roles">No hay requisiciones para mostrar.</p>'; return; }
+
+    cont.innerHTML = datosSeguimientoFiltrados.map((r, idx) => {
+      const id = escaparHtml(String(r.id));
+      const numero = `#${r.numero_consecutivo}-${r.anio}`;
+      let acciones = `
         <div class="acciones-pend">
-          <button class="secundario" onclick="descargarPdfFirmas('${id}')">⬇️ Descargar PDF</button>
+          ${r.tiene_pdf ? `<button class="secundario" onclick="descargarPdfFirmas('${id}')">⬇️ Descargar PDF</button>` : ''}
           <button class="secundario" onclick="verRequisicion('${id}')">Ver requisición</button>
-        </div>
+        </div>`;
+      if (r.me_toca_firmar) {
+        acciones += `
+        <div style="font-size:14px; margin-top:10px;">Te toca firmar como: <strong>${escaparHtml((r.firmas.find(f => f.paso === r.paso_actual) || {}).etiqueta || '')}</strong></div>
         <div class="acciones-pend">
           <input type="file" id="archivo-firma-${id}" accept="application/pdf,.pdf">
           <button class="acento" onclick="subirPdfFirmado('${id}', this)">📤 Subir firmado</button>
-          <button class="peligro" style="padding:7px 12px; font-size:13px;" onclick="abrirModalRechazar('${id}', '#${p.numero_consecutivo}-${p.anio}')">Rechazar</button>
+          <button class="peligro" style="padding:7px 12px; font-size:13px;" onclick="abrirModalRechazar('${id}', '${numero}')">Rechazar</button>
+        </div>`;
+      } else if (r.estado === 'generada' && r.es_mia) {
+        acciones += `
+        <div style="font-size:14px; margin-top:10px;">Sube el PDF original (el que guardaste al imprimir) para iniciar las firmas:</div>
+        <div class="acciones-pend">
+          <input type="file" id="archivo-firma-${id}" accept="application/pdf,.pdf">
+          <button class="acento" onclick="subirPdfOriginalSeguimiento('${id}', this)">📎 Subir PDF e iniciar firmas</button>
+        </div>`;
+      }
+      return `
+      <div class="tarjeta-pendiente ${r.me_toca_firmar ? 'me-toca' : ''}">
+        <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+          <div class="titulo-pend">${numero} · ${escaparHtml(r.nombre_cargo || '')}</div>
+          <span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span>
         </div>
+        <div class="detalle-pend">${escaparHtml(r.area || '')} · ${escaparHtml(r.tipo_requisicion || '')} · Solicitada por ${escaparHtml(r.nombre_solicitante || '')}</div>
+        ${barraDeProgresoHtml(r, idx)}
+        ${acciones}
         <div id="msg-firma-${id}" style="font-size:13px; margin-top:8px;"></div>
       </div>`;
     }).join('');
+  }
+
+  async function subirPdfOriginalSeguimiento(idRequisicion, boton) {
+    const input = document.getElementById('archivo-firma-' + idRequisicion);
+    const msg = document.getElementById('msg-firma-' + idRequisicion);
+    if (!input.files.length) { msg.style.color = '#b91c1c'; msg.textContent = 'Selecciona el PDF que guardaste al imprimir.'; return; }
+    const fd = new FormData();
+    fd.append('accion', 'subir_original');
+    fd.append('requisicion_id', idRequisicion);
+    fd.append('archivo', input.files[0]);
+    boton.disabled = true;
+    msg.style.color = '#475569'; msg.textContent = 'Subiendo...';
+    try {
+      const r = await llamarFuncionFirmas(fd);
+      msg.style.color = '#15803d'; msg.textContent = '✅ ' + r.mensaje;
+      setTimeout(cargarPendientes, 2000);
+    } catch (e) {
+      msg.style.color = '#b91c1c'; msg.textContent = '⛔ ' + e.message;
+      boton.disabled = false;
+    }
   }
 
   async function descargarPdfFirmas(idRequisicion) {
