@@ -9771,8 +9771,12 @@ var supabase = function(e) {
     let aviso = '';
     const sinPdf = vistaRequisiciones === 'mias' ? filas.filter(r => r.estado === 'generada' && r.creado_por === usuarioActual?.id) : [];
     if (sinPdf.length) {
-      const enlaces = sinPdf.map(r => `<a href="#" onclick="verRequisicion('${escaparHtml(String(r.id))}'); return false;">#${r.numero_consecutivo}-${r.anio}</a> (${escaparHtml(r.datos_formulario?.nombre_cargo || '')})`).join(', ');
-      aviso = `<div class="aviso-sin-pdf">⚠️ ${sinPdf.length === 1 ? 'Quedó pendiente subir el PDF de la requisición' : 'Quedó pendiente subir el PDF de las requisiciones'} ${enlaces}. Sin ese archivo no inicia el proceso de firmas. Entra a <strong>Ver</strong> para subirlo.</div>`;
+      const enlace = (r) => `<a href="#" onclick="verRequisicion('${escaparHtml(String(r.id))}'); return false;">#${r.numero_consecutivo}-${r.anio}</a> (${escaparHtml(r.datos_formulario?.nombre_cargo || '')})`;
+      aviso = sinPdf.length === 1
+        ? `<div class="aviso-sin-pdf">⚠️ Quedó pendiente subir el PDF de la requisición ${enlace(sinPdf[0])}. Sin ese archivo no inicia el proceso de firmas. Entra a <strong>Ver</strong> para subirlo.</div>`
+        : `<div class="aviso-sin-pdf">⚠️ Quedó pendiente subir el PDF de estas ${sinPdf.length} requisiciones. Sin esos archivos no inicia el proceso de firmas. Entra a <strong>Ver</strong> en cada una para subirlo:
+             <ul style="margin:6px 0 0; padding-left:22px;">${sinPdf.map(r => `<li>${enlace(r)}</li>`).join('')}</ul>
+           </div>`;
     }
 
     cont.innerHTML = aviso + `
