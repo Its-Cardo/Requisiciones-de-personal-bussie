@@ -8987,6 +8987,41 @@ var supabase = function(e) {
     .progreso-firmas .fecha-paso { font-size: 10px; color: #64748b; margin-top: 2px; }
     .detalle-paso { background: #fff; border: 1px solid #DCE3EA; border-radius: 8px; padding: 10px 12px; font-size: 13px; color: #334155; margin: 8px 0 4px; }
     .detalle-paso .titulo-detalle { font-weight: 700; margin-bottom: 4px; }
+    #btnVistaFirmas .contador-pendientes { margin-left: 4px; }
+    /* Seguimiento compacto */
+    .filtros-seg { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .filtros-seg select, .filtros-seg input { width: auto; flex: 1 1 200px; padding: 6px 10px; font-size: 13px; border: 1px solid #B7C2CE; border-radius: 4px; }
+    .fila-seg { border: 1px solid #DCE3EA; border-radius: 8px; background: #fff; margin-bottom: 6px; }
+    .fila-seg .cabeza { display: grid; grid-template-columns: 78px minmax(140px, 1.3fr) minmax(170px, 1.4fr) auto; gap: 10px; align-items: center; padding: 8px 12px; cursor: pointer; }
+    .fila-seg .cabeza:hover { background: #F8FAFC; }
+    .fila-seg .num { font-weight: 700; color: #10243E; font-size: 13px; }
+    .fila-seg .desc-seg { font-size: 13px; color: #334155; line-height: 1.25; }
+    .fila-seg .desc-seg small { color: #64748b; font-size: 11px; }
+    .fila-seg .cuerpo { padding: 0 14px 12px; border-top: 1px solid #EEF1F5; }
+    .mini-barra { display: flex; align-items: center; }
+    .mini-barra .mb { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #CBD5E1; background: #fff; box-sizing: border-box; flex: 0 0 auto; }
+    .mini-barra .mb.ok { border-color: #16A34A; } .mini-barra .mb.pendiente { border-color: #2563EB; }
+    .mini-barra .mb.rechazada { border-color: #DC2626; } .mini-barra .mb.actual { box-shadow: 0 0 0 3px rgba(37,99,235,.18); }
+    .mini-barra .ml { flex: 1 1 auto; min-width: 8px; max-width: 28px; height: 2px; background: #CBD5E1; }
+    .mini-barra .ml.ok { background: #16A34A; }
+    @media (max-width: 640px) { .fila-seg .cabeza { grid-template-columns: 1fr auto; } .fila-seg .mini-barra { grid-column: 1 / -1; } }
+    /* Estadísticas */
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .kpi { background: #fff; border: 1px solid #DCE3EA; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+    .kpi:hover { border-color: #1CA7A0; }
+    .kpi .valor { font-size: 24px; font-weight: 700; color: #10243E; line-height: 1.1; }
+    .kpi .rotulo { font-size: 12px; color: #64748b; }
+    .kpi .pct { font-size: 12px; font-weight: 600; }
+    .graficas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+    .grafica { background: #fff; border: 1px solid #DCE3EA; border-radius: 10px; padding: 12px 14px; }
+    .grafica h3 { font-size: 14px; margin: 0 0 10px; color: #10243E; font-family: inherit; }
+    .barra-est { display: grid; grid-template-columns: minmax(90px, 40%) 1fr 58px; gap: 8px; align-items: center; font-size: 12px; padding: 3px 4px; border-radius: 4px; cursor: pointer; }
+    .barra-est:hover, .barra-est.activa { background: #F1F5F9; }
+    .barra-est .fondo { background: #EEF1F5; border-radius: 4px; height: 12px; overflow: hidden; }
+    .barra-est .relleno { height: 100%; border-radius: 4px; }
+    .barra-est .cifra { text-align: right; color: #334155; font-weight: 600; white-space: nowrap; }
+    .tiempo-est { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px dashed #E2E8F0; }
+    .tiempo-est:last-child { border-bottom: none; }
     .fondo-modal { position: fixed; inset: 0; background: rgba(16,36,62,0.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
     .caja-modal { background: #fff; border-radius: 10px; padding: 22px; width: 100%; max-width: 460px; box-shadow: 0 10px 30px rgba(16,36,62,0.25); }
     .caja-modal textarea { width: 100%; min-height: 90px; padding: 8px; border: 1px solid #B7C2CE; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 14px; }
@@ -9043,18 +9078,11 @@ var supabase = function(e) {
           <div class="desc">Llena y genera una nueva requisición de personal</div>
         </div>
       </div>
-      <div class="inicio-boton" onclick="mostrarSeccionVerRequisiciones()">
+      <div class="inicio-boton" onclick="mostrarSeccionVerRequisiciones(true)">
         <div class="icono">📋</div>
         <div class="texto">
-          <div class="titulo">Ver requisiciones</div>
+          <div class="titulo">Gestión de requisiciones <span id="contadorPendientes" class="contador-pendientes vacio" title="Firmas pendientes">0</span></div>
           <div class="desc" id="descVerRequisiciones">Consulta el estado de las requisiciones de tu área</div>
-        </div>
-      </div>
-      <div class="inicio-boton" id="botonPendientesFirma" onclick="mostrarSeccionPendientes()">
-        <div class="icono">✍️</div>
-        <div class="texto">
-          <div class="titulo">Seguimiento de requisiciones <span id="contadorPendientes" class="contador-pendientes vacio" title="Requisiciones que esperan tu firma">0</span></div>
-          <div class="desc">Avance de las firmas de tus requisiciones y de las que te toca firmar</div>
         </div>
       </div>
       <div class="inicio-boton solo-developer hidden" id="botonAsignarRoles" onclick="mostrarSeccionOrganigrama()">
@@ -9082,11 +9110,11 @@ var supabase = function(e) {
   <!-- ============ SECCIÓN: VER REQUISICIONES ============ -->
   <div id="seccionVerRequisiciones" class="hidden">
     <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
-    <div class="section-title">Requisiciones</div>
+    <div class="section-title">Gestión de requisiciones</div>
 
     <div class="filtro-area hidden" id="filtroAreaContenedor">
       <label>Área:</label>
-      <select id="selectFiltroArea" onchange="cargarRequisiciones()">
+      <select id="selectFiltroArea" onchange="refrescarVistaRequisiciones()">
         <option value="todas">Todas las áreas</option>
       </select>
     </div>
@@ -9094,45 +9122,46 @@ var supabase = function(e) {
     <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
       <button id="btnVistaArea" class="acento" onclick="cambiarVistaRequisiciones('area')">Requisiciones del área</button>
       <button id="btnVistaMias" class="secundario" onclick="cambiarVistaRequisiciones('mias')">Mis requisiciones</button>
+      <button id="btnVistaFirmas" class="secundario" onclick="cambiarVistaRequisiciones('firmas')">Firmas pendientes <span id="contadorPendientesTab" class="contador-pendientes vacio">0</span></button>
+      <button id="btnVistaSeguimiento" class="secundario" onclick="cambiarVistaRequisiciones('seguimiento')">Seguimiento</button>
+      <button id="btnVistaEstadisticas" class="secundario" onclick="cambiarVistaRequisiciones('estadisticas')">Estadísticas</button>
     </div>
 
     <div id="listaRequisiciones"><div class="cargando">Cargando requisiciones...</div></div>
 
-    <!-- Ventana para cancelar una requisición -->
-    <div id="modalCancelar" class="fondo-modal hidden">
-      <div class="caja-modal">
-        <div class="section-title" style="margin-top:0;">Cancelar requisición <span id="modalCancelarNumero"></span></div>
-        <label for="motivoCancelacion" style="display:block; font-size:14px; margin-bottom:6px;">Motivo de la cancelación (obligatorio):</label>
-        <textarea id="motivoCancelacion"></textarea>
-        <div id="modalCancelarMensaje" style="font-size:13px; margin-top:8px; color:#b91c1c;"></div>
-        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
-          <button class="secundario" onclick="cerrarModalCancelar()">Volver</button>
-          <button id="btnConfirmarCancelar" class="peligro" style="padding:8px 14px; font-size:14px;" onclick="confirmarCancelacion()">Cancelar requisición</button>
-        </div>
+    <!-- Firmas pendientes: solo lo que espera mi firma -->
+    <div id="vistaFirmas" class="hidden">
+      <p style="color:#64748b; font-size:13px; margin:0 0 12px;">
+        Descarga el PDF, fírmalo en Adobe Acrobat con tu ID digital (sin hacer otros cambios), guárdalo y súbelo aquí. La app verifica que sea el mismo documento, que tenga tu firma y que el certificado esté a tu nombre.
+      </p>
+      <div id="listaFirmasPendientes"></div>
+    </div>
+
+    <!-- Seguimiento compacto -->
+    <div id="vistaSeguimiento" class="hidden">
+      <div class="filtros-seg">
+        <select id="filtroEstadoSeg" onchange="dibujarSeguimiento()">
+          <option value="todas">Todos los estados</option>
+          <option value="en_proceso">En proceso</option>
+          <option value="aprobada">Aprobadas</option>
+          <option value="rechazada">Rechazadas</option>
+          <option value="cancelada">Canceladas</option>
+        </select>
+        <select id="filtroFaseSeg" onchange="dibujarSeguimiento()">
+          <option value="todas">Todas las fases</option>
+          <option value="original">Falta subir PDF original</option>
+          <option value="jefe_inmediato">Esperando Jefe inmediato</option>
+          <option value="director_operaciones">Esperando Director de Operaciones</option>
+          <option value="gerente_th">Esperando Gerente de Talento Humano</option>
+          <option value="director_general">Esperando Director General</option>
+        </select>
+        <input type="text" id="buscarSeg" oninput="dibujarSeguimiento()" placeholder="Buscar por número o cargo...">
       </div>
+      <div id="listaSeguimiento"></div>
     </div>
-  </div>
 
-  <!-- ============ SECCIÓN: PENDIENTES POR FIRMAR ============ -->
-  <div id="seccionPendientes" class="hidden">
-    <button class="volver" onclick="volverAlInicio()">&larr; Volver al inicio</button>
-    <div class="section-title">Seguimiento de requisiciones</div>
-    <p style="color:#64748b; font-size:13px; margin-top:-8px;">
-      Haz clic en cada bolita para ver quién firmó y cuándo. Para firmar: descarga el PDF, fírmalo en Adobe Acrobat con tu ID digital (sin hacer otros cambios), guárdalo y súbelo aquí.
-    </p>
-    <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
-      <label for="filtroSeguimiento" style="font-size:14px;">Mostrar:</label>
-      <select id="filtroSeguimiento" onchange="dibujarSeguimiento()" style="padding:6px 10px; border:1px solid #B7C2CE; border-radius:4px; font-size:14px; width:auto;">
-        <option value="todas">Todas</option>
-        <option value="me_toca">Me toca firmar</option>
-        <option value="en_proceso">En proceso</option>
-        <option value="aprobada">Aprobadas</option>
-        <option value="rechazada">Rechazadas</option>
-        <option value="cancelada">Canceladas</option>
-      </select>
-    </div>
-    <div id="listaPendientes"><div class="cargando">Cargando...</div></div>
-
+    <!-- Estadísticas -->
+    <div id="vistaEstadisticas" class="hidden"></div>
     <!-- Ventana para rechazar -->
     <div id="modalRechazar" class="fondo-modal hidden">
       <div class="caja-modal">
@@ -9144,6 +9173,20 @@ var supabase = function(e) {
         <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
           <button class="secundario" onclick="cerrarModalRechazar()">Volver</button>
           <button id="btnConfirmarRechazo" class="peligro" style="padding:8px 14px; font-size:14px;" onclick="confirmarRechazo()">Rechazar requisición</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ventana para cancelar una requisición -->
+    <div id="modalCancelar" class="fondo-modal hidden">
+      <div class="caja-modal">
+        <div class="section-title" style="margin-top:0;">Cancelar requisición <span id="modalCancelarNumero"></span></div>
+        <label for="motivoCancelacion" style="display:block; font-size:14px; margin-bottom:6px;">Motivo de la cancelación (obligatorio):</label>
+        <textarea id="motivoCancelacion"></textarea>
+        <div id="modalCancelarMensaje" style="font-size:13px; margin-top:8px; color:#b91c1c;"></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
+          <button class="secundario" onclick="cerrarModalCancelar()">Volver</button>
+          <button id="btnConfirmarCancelar" class="peligro" style="padding:8px 14px; font-size:14px;" onclick="confirmarCancelacion()">Cancelar requisición</button>
         </div>
       </div>
     </div>
@@ -9290,8 +9333,7 @@ var supabase = function(e) {
     esAdmin = false;
     iframeRequisicionCargado = false;
     vistaRequisiciones = 'area';
-    document.getElementById('btnVistaArea').className = 'acento';
-    document.getElementById('btnVistaMias').className = 'secundario';
+    Object.entries(BOTONES_VISTA).forEach(([v, id]) => { document.getElementById(id).className = v === 'area' ? 'acento' : 'secundario'; });
     document.getElementById('iframeRequisicion').src = 'about:blank';
     document.getElementById('iframeDetalleRequisicion').src = 'about:blank';
     document.getElementById('selectAreaOrganigrama').innerHTML = '';
@@ -9368,7 +9410,7 @@ var supabase = function(e) {
   // ================== NAVEGACIÓN ENTRE SECCIONES ==================
 
   function ocultarTodasLasSecciones() {
-    ['seccionInicio', 'seccionCrearRequisicion', 'seccionVerRequisiciones', 'seccionDetalleRequisicion', 'seccionOrganigrama', 'seccionPendientes'].forEach(id => {
+    ['seccionInicio', 'seccionCrearRequisicion', 'seccionVerRequisiciones', 'seccionDetalleRequisicion', 'seccionOrganigrama'].forEach(id => {
       document.getElementById(id).classList.add('hidden');
     });
   }
@@ -9392,7 +9434,7 @@ var supabase = function(e) {
     }
   }
 
-  function mostrarSeccionVerRequisiciones() {
+  async function mostrarSeccionVerRequisiciones(desdeInicio) {
     ocultarTodasLasSecciones();
     document.getElementById('seccionVerRequisiciones').classList.remove('hidden');
 
@@ -9412,7 +9454,12 @@ var supabase = function(e) {
       filtroContenedor.classList.add('hidden');
     }
 
-    cargarRequisiciones();
+    // Al entrar desde el inicio: si hay firmas pendientes, se abre ese apartado primero
+    if (desdeInicio) {
+      await cargarDatosSeguimiento();
+      vistaRequisiciones = datosSeguimiento.some(r => r.me_toca_firmar) ? 'firmas' : 'area';
+    }
+    cambiarVistaRequisiciones(vistaRequisiciones);
   }
 
 
@@ -9773,31 +9820,32 @@ var supabase = function(e) {
     return cuerpo;
   }
 
-  async function actualizarContadorPendientes() {
-    const el = document.getElementById('contadorPendientes');
-    const { data, error } = await sb.rpc('mis_firmas_pendientes');
-    const n = error ? 0 : (data || []).length;
-    el.textContent = n;
-    el.classList.toggle('vacio', n === 0);
-  }
-
-  async function mostrarSeccionPendientes() {
-    ocultarTodasLasSecciones();
-    document.getElementById('seccionPendientes').classList.remove('hidden');
-    await cargarPendientes();
-  }
+  async function actualizarContadorPendientes() { await cargarDatosSeguimiento(); }
 
   let datosSeguimiento = [];
 
-  async function cargarPendientes() {
-    const cont = document.getElementById('listaPendientes');
-    cont.innerHTML = '<div class="cargando">Cargando...</div>';
+  // Trae las requisiciones del seguimiento (las que la persona puede seguir) y actualiza contadores
+  async function cargarDatosSeguimiento() {
     const { data, error } = await sb.rpc('seguimiento_requisiciones');
-    if (error) { cont.innerHTML = '<div class="error-msg">No se pudo cargar el seguimiento: ' + escaparHtml(error.message) + '</div>'; return; }
-    datosSeguimiento = data || [];
-    actualizarContadorPendientes();
-    dibujarSeguimiento();
+    datosSeguimiento = error ? [] : (data || []);
+    const n = datosSeguimiento.filter(r => r.me_toca_firmar).length;
+    ['contadorPendientes', 'contadorPendientesTab'].forEach(id => {
+      const el = document.getElementById(id);
+      el.textContent = n;
+      el.classList.toggle('vacio', n === 0);
+    });
+    if (error) console.error(error);
   }
+
+  // Aplica el filtro de Área de arriba (solo visible para quien ve todas las áreas)
+  function seguimientoDelAreaFiltrada() {
+    const filtro = document.getElementById('selectFiltroArea').value;
+    if (!puedeVerTodasLasAreas || filtro === 'todas') return datosSeguimiento;
+    const nombre = catalogoAreas.find(a => String(a.id) === filtro)?.nombre;
+    return datosSeguimiento.filter(r => r.area === nombre);
+  }
+
+  async function recargarSeguimiento() { await refrescarVistaRequisiciones(); }
 
   const fechaHora = (iso) => iso ? new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
   const NOMBRE_CORTO_PASO = {
@@ -9857,14 +9905,16 @@ var supabase = function(e) {
     return fases;
   }
 
+  const seguimientoPorClave = {};
   function barraDeProgresoHtml(r, idx) {
+    seguimientoPorClave[idx] = r;
     const fases = fasesDeRequisicion(r);
     return '<div class="progreso-firmas">' + fases.map((f, i) => {
       const linea = i === 0 ? '' : `<div class="linea ${fases[i - 1].estado === 'ok' && f.estado !== 'inactiva' ? 'ok' : ''}"></div>`;
       const fecha = f.fecha && f.estado !== 'pendiente' ? `<div class="fecha-paso">${new Date(f.fecha).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>` : '';
       return linea + `
         <div class="paso">
-          <button type="button" class="bolita ${f.estado} ${f.actual ? 'actual' : ''}" title="${escaparHtml(f.titulo)}" onclick="mostrarDetalleFase(${idx}, ${i}, this)"></button>
+          <button type="button" class="bolita ${f.estado} ${f.actual ? 'actual' : ''}" title="${escaparHtml(f.titulo)}" onclick="mostrarDetalleFase('${idx}', ${i}, this)"></button>
           <div class="nombre-paso">${escaparHtml(f.titulo)}</div>${fecha}
         </div>`;
     }).join('') + '</div>' + `<div id="detalle-fase-${idx}"></div>`;
@@ -9872,66 +9922,228 @@ var supabase = function(e) {
 
   function mostrarDetalleFase(idx, i, boton) {
     const caja = document.getElementById('detalle-fase-' + idx);
-    const tarjeta = boton.closest('.tarjeta-pendiente');
+    const tarjeta = boton.closest('.tarjeta-pendiente, .fila-seg');
     const yaAbierta = boton.classList.contains('seleccionada');
     tarjeta.querySelectorAll('.bolita.seleccionada').forEach(b => b.classList.remove('seleccionada'));
     if (yaAbierta) { caja.innerHTML = ''; return; }
     boton.classList.add('seleccionada');
-    const f = fasesDeRequisicion(datosSeguimientoFiltrados[idx])[i];
+    const f = fasesDeRequisicion(seguimientoPorClave[idx])[i];
     const lineas = f.detalle.filter(Boolean);
     caja.innerHTML = `<div class="detalle-paso"><div class="titulo-detalle">${escaparHtml(f.titulo)}</div>${lineas.slice(1).map(l => `<div>${escaparHtml(l)}</div>`).join('') || `<div>${escaparHtml(lineas[0] || '')}</div>`}</div>`;
   }
 
-  let datosSeguimientoFiltrados = [];
-  function dibujarSeguimiento() {
-    const cont = document.getElementById('listaPendientes');
-    const filtro = document.getElementById('filtroSeguimiento').value;
-    datosSeguimientoFiltrados = datosSeguimiento.filter(r => {
-      if (filtro === 'me_toca') return r.me_toca_firmar;
-      if (filtro === 'en_proceso') return r.estado === 'generada' || r.estado === 'pendiente_firmas';
-      if (filtro === 'todas') return true;
-      return r.estado === filtro;
-    });
-    // Primero las que esperan mi firma
-    datosSeguimientoFiltrados.sort((a, b) => (b.me_toca_firmar ? 1 : 0) - (a.me_toca_firmar ? 1 : 0));
-    if (!datosSeguimientoFiltrados.length) { cont.innerHTML = '<p class="sin-roles">No hay requisiciones para mostrar.</p>'; return; }
-
-    cont.innerHTML = datosSeguimientoFiltrados.map((r, idx) => {
-      const id = escaparHtml(String(r.id));
-      const numero = `#${r.numero_consecutivo}-${r.anio}`;
-      let acciones = `
-        <div class="acciones-pend">
-          ${r.tiene_pdf ? `<button class="secundario" onclick="descargarPdfFirmas('${id}')">⬇️ Descargar PDF</button>` : ''}
-          <button class="secundario" onclick="verRequisicion('${id}')">Ver requisición</button>
-        </div>`;
-      if (r.me_toca_firmar) {
-        acciones += `
-        <div style="font-size:14px; margin-top:10px;">Te toca firmar como: <strong>${escaparHtml((r.firmas.find(f => f.paso === r.paso_actual) || {}).etiqueta || '')}</strong></div>
-        <div class="acciones-pend">
-          <input type="file" id="archivo-firma-${id}" accept="application/pdf,.pdf">
-          <button class="acento" onclick="subirPdfFirmado('${id}', this)">📤 Subir firmado</button>
-          <button class="peligro" style="padding:7px 12px; font-size:13px;" onclick="abrirModalRechazar('${id}', '${numero}')">Rechazar</button>
-        </div>`;
-      } else if (r.estado === 'generada' && r.es_mia) {
-        acciones += `
-        <div style="font-size:14px; margin-top:10px;">Sube el PDF original (el que guardaste al imprimir) para iniciar las firmas:</div>
-        <div class="acciones-pend">
-          <input type="file" id="archivo-firma-${id}" accept="application/pdf,.pdf">
-          <button class="acento" onclick="subirPdfOriginalSeguimiento('${id}', this)">📎 Subir PDF e iniciar firmas</button>
-        </div>`;
-      }
-      return `
-      <div class="tarjeta-pendiente ${r.me_toca_firmar ? 'me-toca' : ''}">
+  // Tarjeta completa (se usa en Firmas pendientes)
+  function tarjetaFirmaHtml(r) {
+    const id = escaparHtml(String(r.id));
+    const numero = `#${r.numero_consecutivo}-${r.anio}`;
+    const etiqueta = (r.firmas.find(f => f.paso === r.paso_actual) || {}).etiqueta || '';
+    return `
+      <div class="tarjeta-pendiente me-toca">
         <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
           <div class="titulo-pend">${numero} · ${escaparHtml(r.nombre_cargo || '')}</div>
           <span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span>
         </div>
         <div class="detalle-pend">${escaparHtml(r.area || '')} · ${escaparHtml(r.tipo_requisicion || '')} · Solicitada por ${escaparHtml(r.nombre_solicitante || '')}</div>
-        ${barraDeProgresoHtml(r, idx)}
-        ${acciones}
+        ${barraDeProgresoHtml(r, 'f' + r.id)}
+        <div style="font-size:14px; margin-top:6px;">Te toca firmar como: <strong>${escaparHtml(etiqueta)}</strong></div>
+        <div class="acciones-pend">
+          <button class="secundario" onclick="descargarPdfFirmas('${id}')">⬇️ Descargar PDF</button>
+          <button class="secundario" onclick="verRequisicion('${id}')">Ver requisición</button>
+          <input type="file" id="archivo-firma-${id}" accept="application/pdf,.pdf">
+          <button class="acento" onclick="subirPdfFirmado('${id}', this)">📤 Subir firmado</button>
+          <button class="peligro" style="padding:7px 12px; font-size:13px;" onclick="abrirModalRechazar('${id}', '${numero}')">Rechazar</button>
+        </div>
         <div id="msg-firma-${id}" style="font-size:13px; margin-top:8px;"></div>
       </div>`;
-    }).join('');
+  }
+
+  function dibujarFirmasPendientes() {
+    const cont = document.getElementById('listaFirmasPendientes');
+    const lista = datosSeguimiento.filter(r => r.me_toca_firmar);
+    cont.innerHTML = lista.length ? lista.map(tarjetaFirmaHtml).join('') : '<p class="sin-roles">No tienes firmas pendientes. 🎉</p>';
+  }
+
+  // Fase en la que va una requisición en proceso
+  function faseActual(r) {
+    if (r.estado === 'generada') return 'original';
+    if (r.estado !== 'pendiente_firmas') return null;
+    return (r.firmas.find(f => f.paso === r.paso_actual) || {}).tipo || null;
+  }
+
+  // Fila compacta con mini barra (Seguimiento y listas de Estadísticas)
+  function filaSeguimientoHtml(r, prefijo) {
+    const clave = prefijo + r.id;
+    const fases = fasesDeRequisicion(r);
+    const mini = fases.map((f, i) => (i ? `<span class="ml ${fases[i - 1].estado === 'ok' && f.estado !== 'inactiva' ? 'ok' : ''}"></span>` : '') +
+      `<span class="mb ${f.estado} ${f.actual ? 'actual' : ''}" title="${escaparHtml(f.titulo + ': ' + f.detalle.filter(Boolean).slice(1).join(' · '))}"></span>`).join('');
+    return `
+      <div class="fila-seg" id="fila-${clave}">
+        <div class="cabeza" onclick="alternarFilaSeguimiento('${clave}')">
+          <div class="num">#${r.numero_consecutivo}-${r.anio}</div>
+          <div class="desc-seg">${escaparHtml(r.nombre_cargo || '')}<br><small>${escaparHtml(r.area || '')} · ${escaparHtml(r.tipo_requisicion || '')}</small></div>
+          <div class="mini-barra">${mini}</div>
+          <span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span>
+        </div>
+        <div class="cuerpo hidden" id="cuerpo-${clave}"></div>
+      </div>`;
+  }
+
+  function alternarFilaSeguimiento(clave) {
+    const cuerpo = document.getElementById('cuerpo-' + clave);
+    if (!cuerpo.classList.contains('hidden')) { cuerpo.classList.add('hidden'); cuerpo.innerHTML = ''; return; }
+    const idReq = clave.slice(1);
+    const r = datosSeguimiento.find(x => String(x.id) === idReq);
+    if (!r) return;
+    const id = escaparHtml(String(r.id));
+    let extra = '';
+    if (r.me_toca_firmar) extra = `<div style="font-size:13px; margin-top:6px;">⚠️ Esta requisición espera tu firma. Fírmala desde <a href="#" onclick="cambiarVistaRequisiciones('firmas'); return false;">Firmas pendientes</a>.</div>`;
+    else if (r.estado === 'generada' && r.es_mia) extra = `
+      <div style="font-size:13px; margin-top:6px;">Sube el PDF original (el que guardaste al imprimir) para iniciar las firmas:</div>
+      <div class="acciones-pend">
+        <input type="file" id="archivo-firma-${id}" accept="application/pdf,.pdf">
+        <button class="acento" onclick="subirPdfOriginalSeguimiento('${id}', this)">📎 Subir PDF e iniciar firmas</button>
+      </div>`;
+    cuerpo.innerHTML = `
+      <div class="detalle-pend" style="margin-top:8px;">Solicitada por ${escaparHtml(r.nombre_solicitante || '')} el ${formatearFecha(r.creado_en)}</div>
+      ${barraDeProgresoHtml(r, clave)}
+      <div class="acciones-pend">
+        ${r.tiene_pdf ? `<button class="secundario" onclick="descargarPdfFirmas('${id}')">⬇️ Descargar PDF</button>` : ''}
+        <button class="secundario" onclick="verRequisicion('${id}')">Ver requisición</button>
+      </div>
+      ${extra}
+      <div id="msg-firma-${id}" style="font-size:13px; margin-top:8px;"></div>`;
+    cuerpo.classList.remove('hidden');
+  }
+
+  function dibujarSeguimiento() {
+    const cont = document.getElementById('listaSeguimiento');
+    const estado = document.getElementById('filtroEstadoSeg').value;
+    const fase = document.getElementById('filtroFaseSeg').value;
+    const texto = normalizarTexto(document.getElementById('buscarSeg').value);
+    const lista = seguimientoDelAreaFiltrada().filter(r => {
+      if (estado === 'en_proceso' && !['generada', 'pendiente_firmas'].includes(r.estado)) return false;
+      if (!['todas', 'en_proceso'].includes(estado) && r.estado !== estado) return false;
+      if (fase !== 'todas' && faseActual(r) !== fase) return false;
+      if (texto && !normalizarTexto(`${r.numero_consecutivo}-${r.anio} ${r.nombre_cargo || ''}`).includes(texto)) return false;
+      return true;
+    });
+    cont.innerHTML = lista.length ? lista.map(r => filaSeguimientoHtml(r, 's')).join('') : '<p class="sin-roles">No hay requisiciones para mostrar.</p>';
+  }
+
+  const normalizarTexto = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+
+  // ================== ESTADÍSTICAS ==================
+  const COLOR_ESTADO = { generada: '#2563EB', pendiente_firmas: '#D97706', aprobada: '#16A34A', rechazada: '#64748B', cancelada: '#DC2626' };
+  const NOMBRE_FASE = {
+    original: 'Falta subir PDF original', jefe_inmediato: 'Esperando Jefe inmediato', director_operaciones: 'Esperando Director de Operaciones',
+    gerente_th: 'Esperando Gerente de Talento Humano', director_general: 'Esperando Director General'
+  };
+  let filtroEstadistica = null; // { tipo, valor, titulo }
+
+  const pct = (n, total) => total ? Math.round((n / total) * 100) : 0;
+  const dias = (ms) => (ms / 86400000);
+  const formatoDias = (d) => d < 1 ? `${Math.round(d * 24)} h` : `${d.toFixed(1).replace('.', ',')} días`;
+
+  function graficaBarrasHtml(titulo, items, total, tipo) {
+    const max = Math.max(1, ...items.map(i => i.valor));
+    const filas = items.length ? items.map(i => {
+      const activa = filtroEstadistica && filtroEstadistica.tipo === tipo && filtroEstadistica.valor === i.clave;
+      return `
+      <div class="barra-est ${activa ? 'activa' : ''}" onclick="aplicarFiltroEstadistica('${tipo}', '${escaparHtml(i.clave)}', '${escaparHtml(i.etiqueta)}')" title="Ver estas requisiciones">
+        <div>${escaparHtml(i.etiqueta)}</div>
+        <div class="fondo"><div class="relleno" style="width:${(i.valor / max) * 100}%; background:${i.color || '#1CA7A0'};"></div></div>
+        <div class="cifra">${i.valor} · ${pct(i.valor, total)}%</div>
+      </div>`;
+    }).join('') : '<div style="font-size:13px; color:#94a3b8;">Sin datos</div>';
+    return `<div class="grafica"><h3>${escaparHtml(titulo)}</h3>${filas}</div>`;
+  }
+
+  function contarPor(lista, clave) {
+    const conteo = {};
+    lista.forEach(r => { const k = clave(r); if (k) conteo[k] = (conteo[k] || 0) + 1; });
+    return Object.entries(conteo).sort((a, b) => b[1] - a[1]);
+  }
+
+  function dibujarEstadisticas() {
+    const cont = document.getElementById('vistaEstadisticas');
+    const datos = seguimientoDelAreaFiltrada();
+    const total = datos.length;
+    const enProceso = datos.filter(r => ['generada', 'pendiente_firmas'].includes(r.estado));
+    const n = (e) => datos.filter(r => r.estado === e).length;
+
+    const kpi = (valor, rotulo, color, tipo, clave) => `
+      <div class="kpi" onclick="aplicarFiltroEstadistica('${tipo}', '${clave}', '${rotulo}')">
+        <div class="valor" style="color:${color};">${valor}</div>
+        <div class="rotulo">${rotulo}</div>
+        <div class="pct" style="color:${color};">${tipo === 'todas' ? '' : pct(valor, total) + '%'}</div>
+      </div>`;
+
+    // Tiempos: generada → aprobada, y cuánto tarda cada firma desde el paso anterior
+    const aprobadas = datos.filter(r => r.estado === 'aprobada' && r.aprobada_en);
+    const promAprob = aprobadas.length ? aprobadas.reduce((s, r) => s + (new Date(r.aprobada_en) - new Date(r.creado_en)), 0) / aprobadas.length : null;
+    const tiemposPorPaso = {};
+    datos.forEach(r => {
+      let anterior = null;
+      (r.firmas || []).forEach(f => {
+        if (f.paso === 1) anterior = null;
+        if (f.estado === 'firmada' && f.firmado_en) {
+          if (anterior) (tiemposPorPaso[f.tipo] = tiemposPorPaso[f.tipo] || []).push(new Date(f.firmado_en) - new Date(anterior));
+          anterior = f.firmado_en;
+        }
+      });
+    });
+    const filasTiempo = [`<div class="tiempo-est"><span>Generada → Aprobada</span><strong>${promAprob === null ? '—' : formatoDias(dias(promAprob))}</strong></div>`]
+      .concat(['director_operaciones', 'gerente_th', 'director_general'].map(t => {
+        const arr = tiemposPorPaso[t] || [];
+        const prom = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+        return `<div class="tiempo-est"><span>Firma ${escaparHtml(NOMBRE_CORTO_PASO[t])}</span><strong>${prom === null ? '—' : formatoDias(dias(prom))}</strong></div>`;
+      })).join('');
+
+    const detenidas = contarPor(enProceso, faseActual).map(([k, v]) => ({ clave: k, etiqueta: NOMBRE_FASE[k] || k, valor: v, color: '#2563EB' }));
+
+    let lista = '';
+    if (filtroEstadistica) {
+      const f = filtroEstadistica;
+      const filtradas = datos.filter(r =>
+        f.tipo === 'todas' ? true :
+        f.tipo === 'en_proceso' ? ['generada', 'pendiente_firmas'].includes(r.estado) :
+        f.tipo === 'estado' ? r.estado === f.valor :
+        f.tipo === 'fase' ? faseActual(r) === f.valor :
+        f.tipo === 'area' ? r.area === f.valor :
+        f.tipo === 'tipo' ? r.tipo_requisicion === f.valor : true);
+      lista = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:18px 0 8px; gap:10px; flex-wrap:wrap;">
+          <div style="font-weight:700; color:#10243E;">${escaparHtml(f.titulo)} (${filtradas.length})</div>
+          <button class="secundario" style="padding:4px 10px; font-size:12px;" onclick="aplicarFiltroEstadistica(null)">Cerrar lista</button>
+        </div>
+        ${filtradas.map(r => filaSeguimientoHtml(r, 'e')).join('') || '<p class="sin-roles">No hay requisiciones.</p>'}`;
+    }
+
+    cont.innerHTML = `
+      <p style="color:#64748b; font-size:13px; margin:0 0 12px;">Haz clic en un indicador o en una barra para ver esas requisiciones con su seguimiento.</p>
+      <div class="kpis">
+        ${kpi(total, 'Total', '#10243E', 'todas', 'todas')}
+        ${kpi(enProceso.length, 'En proceso', '#2563EB', 'en_proceso', 'en_proceso')}
+        ${kpi(n('aprobada'), 'Aprobadas', '#16A34A', 'estado', 'aprobada')}
+        ${kpi(n('rechazada'), 'Rechazadas', '#64748B', 'estado', 'rechazada')}
+        ${kpi(n('cancelada'), 'Canceladas', '#DC2626', 'estado', 'cancelada')}
+      </div>
+      <div class="graficas">
+        ${graficaBarrasHtml('Por estado', contarPor(datos, r => r.estado).map(([k, v]) => ({ clave: k, etiqueta: ETIQUETAS_ESTADO[k] || k, valor: v, color: COLOR_ESTADO[k] })), total, 'estado')}
+        ${graficaBarrasHtml('Dónde están detenidas (en proceso)', detenidas, enProceso.length, 'fase')}
+        ${graficaBarrasHtml('Por área', contarPor(datos, r => r.area).map(([k, v]) => ({ clave: k, etiqueta: k, valor: v })), total, 'area')}
+        ${graficaBarrasHtml('Por tipo de requisición', contarPor(datos, r => r.tipo_requisicion).map(([k, v]) => ({ clave: k, etiqueta: k, valor: v, color: '#10243E' })), total, 'tipo')}
+        <div class="grafica"><h3>Tiempos promedio</h3>${filasTiempo}
+          <div style="font-size:11px; color:#94a3b8; margin-top:6px;">Cada firma se mide desde la firma anterior. Solo cuenta requisiciones con fechas registradas.</div>
+        </div>
+      </div>
+      ${lista}`;
+  }
+
+  function aplicarFiltroEstadistica(tipo, valor, titulo) {
+    filtroEstadistica = tipo ? { tipo, valor, titulo: tipo === 'fase' || tipo === 'estado' || tipo === 'area' || tipo === 'tipo' ? titulo : titulo } : null;
+    dibujarEstadisticas();
+    if (tipo) document.querySelector('#vistaEstadisticas .fila-seg, #vistaEstadisticas .sin-roles:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function subirPdfOriginalSeguimiento(idRequisicion, boton) {
@@ -9947,7 +10159,7 @@ var supabase = function(e) {
     try {
       const r = await llamarFuncionFirmas(fd);
       msg.style.color = '#15803d'; msg.textContent = '✅ ' + r.mensaje;
-      setTimeout(cargarPendientes, 2000);
+      setTimeout(recargarSeguimiento, 2000);
     } catch (e) {
       msg.style.color = '#b91c1c'; msg.textContent = '⛔ ' + e.message;
       boton.disabled = false;
@@ -9979,7 +10191,7 @@ var supabase = function(e) {
     try {
       const r = await llamarFuncionFirmas(fd);
       msg.style.color = '#15803d'; msg.textContent = '✅ ' + r.mensaje;
-      setTimeout(cargarPendientes, 2500);
+      setTimeout(recargarSeguimiento, 2500);
     } catch (e) {
       msg.style.color = '#b91c1c'; msg.textContent = '⛔ ' + e.message;
       boton.disabled = false;
@@ -10013,7 +10225,7 @@ var supabase = function(e) {
     try {
       await llamarFuncionFirmas(fd);
       cerrarModalRechazar();
-      cargarPendientes();
+      recargarSeguimiento();
     } catch (e) {
       msg.textContent = 'No se pudo rechazar: ' + e.message;
       boton.disabled = false;
@@ -10177,11 +10389,24 @@ var supabase = function(e) {
   // ---- Vista: requisiciones del área o solo las mías ----
   let vistaRequisiciones = 'area';
 
+  const BOTONES_VISTA = { area: 'btnVistaArea', mias: 'btnVistaMias', firmas: 'btnVistaFirmas', seguimiento: 'btnVistaSeguimiento', estadisticas: 'btnVistaEstadisticas' };
   function cambiarVistaRequisiciones(vista) {
     vistaRequisiciones = vista;
-    document.getElementById('btnVistaArea').className = vista === 'area' ? 'acento' : 'secundario';
-    document.getElementById('btnVistaMias').className = vista === 'mias' ? 'acento' : 'secundario';
-    cargarRequisiciones();
+    Object.entries(BOTONES_VISTA).forEach(([v, id]) => { document.getElementById(id).className = v === vista ? 'acento' : 'secundario'; });
+    const tabla = vista === 'area' || vista === 'mias';
+    document.getElementById('listaRequisiciones').classList.toggle('hidden', !tabla);
+    document.getElementById('vistaFirmas').classList.toggle('hidden', vista !== 'firmas');
+    document.getElementById('vistaSeguimiento').classList.toggle('hidden', vista !== 'seguimiento');
+    document.getElementById('vistaEstadisticas').classList.toggle('hidden', vista !== 'estadisticas');
+    refrescarVistaRequisiciones();
+  }
+
+  async function refrescarVistaRequisiciones() {
+    if (vistaRequisiciones === 'area' || vistaRequisiciones === 'mias') { cargarRequisiciones(); return; }
+    await cargarDatosSeguimiento();
+    if (vistaRequisiciones === 'firmas') dibujarFirmasPendientes();
+    else if (vistaRequisiciones === 'seguimiento') dibujarSeguimiento();
+    else dibujarEstadisticas();
   }
 
   // ---- Cancelar: solo quien la creó, o un Developer (Supabase también lo verifica) ----
