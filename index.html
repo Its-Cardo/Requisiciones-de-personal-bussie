@@ -9475,7 +9475,7 @@ var supabase = function(e) {
     const sel = document.getElementById('nuevoUsuarioCargo');
     const areaId = document.getElementById('nuevoUsuarioArea').value;
     sel.innerHTML = '<option value="">Sin cargo asignado</option>' +
-      cargosParaArea(areaId, null).map(id => `<option value="${id}">${escaparHtml(nombreCargoOrg(id))}</option>`).join('');
+      cargosParaArea(areaId, null).map(id => opcionCargoHtml(id, null, null)).join('');
   }
 
   function toggleFormCrearUsuario() {
@@ -9544,6 +9544,7 @@ var supabase = function(e) {
       okEl.textContent = 'Usuario creado. Ya puede iniciar sesión con el correo y la contraseña que definiste. Entra a su área para asignarle un rol.';
       ['nuevoUsuarioPrimerNombre', 'nuevoUsuarioSegundoNombre', 'nuevoUsuarioPrimerApellido', 'nuevoUsuarioSegundoApellido', 'nuevoUsuarioEmail', 'nuevoUsuarioPassword'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('nuevoUsuarioArea').value = '';
+      await cargarDatosOrganigrama(); // actualiza qué cargos únicos quedaron ocupados
       llenarSelectCargoNuevoUsuario();
 
       if (areaActualId !== null) await cargarPersonasDeArea(areaActualId);
@@ -9619,11 +9620,19 @@ var supabase = function(e) {
 
     let cargoHtml;
     if (puedeGestionarRoles) {
-      const opcionesCargo = cargosParaArea(areaActualId, persona.cargo_id).map(id =>
-        `<option value="${id}" ${id === persona.cargo_id ? 'selected' : ''}>${escaparHtml(nombreCargoOrg(id))}</option>`).join('');
+      const opcionesCargo = cargosParaArea(areaActualId, persona.cargo_id).map(id => opcionCargoHtml(id, persona.cargo_id, persona.id)).join('');
+      const opcionesArea = [...catalogoAreas].sort((x, y) => x.nombre.localeCompare(y.nombre, 'es')).map(a =>
+        `<option value="${a.id}" ${a.id === areaActualId ? 'selected' : ''}>${escaparHtml(a.nombre)}</option>`).join('');
       cargoHtml = `
+        <div style="display:flex; align-items:center; gap:8px; margin:6px 0 0; font-size:13px; flex-wrap:wrap;">
+          <span style="color:#64748b; min-width:44px;">Área:</span>
+          <select onchange="asignarArea('${persona.id}', this)" style="flex:1; min-width:220px; padding:4px 6px; border:1px solid #B7C2CE; border-radius:4px; font-size:13px;">
+            ${opcionesArea}
+          </select>
+        </div>`;
+      cargoHtml += `
         <div style="display:flex; align-items:center; gap:8px; margin:6px 0 8px; font-size:13px; flex-wrap:wrap;">
-          <span style="color:#64748b;">Cargo:</span>
+          <span style="color:#64748b; min-width:44px;">Cargo:</span>
           <select onchange="asignarCargo('${persona.id}', this)" style="flex:1; min-width:220px; padding:4px 6px; border:1px solid #B7C2CE; border-radius:4px; font-size:13px;">
             <option value="" ${persona.cargo_id ? '' : 'selected'}>Sin cargo asignado</option>
             ${opcionesCargo}
@@ -9643,6 +9652,27 @@ var supabase = function(e) {
     cont.appendChild(card);
   }
 
+  // Cambiar el área de una persona (si su cargo no existe en la nueva área, queda sin cargo)
+  async function asignarArea(usuarioId, select) {
+    const msg = document.getElementById('msgCargo-' + usuarioId);
+    const nuevaArea = Number(select.value);
+    const nombreArea = catalogoAreas.find(a => a.id === nuevaArea)?.nombre || '';
+    select.disabled = true;
+    const { data: cargoQueda, error } = await sb.rpc('asignar_area_usuario', { p_usuario: usuarioId, p_area_id: nuevaArea });
+    select.disabled = false;
+    if (error) {
+      msg.textContent = 'No se pudo cambiar el área: ' + error.message;
+      msg.style.color = '#b91c1c';
+      select.value = String(areaActualId);
+      return;
+    }
+    const persona = personasAreaGestion.find(p => p.id === usuarioId);
+    const aviso = persona?.cargo_id && !cargoQueda ? ' Su cargo no existe en esa área, así que quedó sin cargo: asígnale uno allá.' : '';
+    await cargarDatosOrganigrama();
+    await cargarPersonasDeArea(areaActualId);
+    mostrarMensajeOrganigrama(`${persona?.nombre_completo || 'La persona'} pasó a ${nombreArea}.${aviso}`, false);
+  }
+
   async function asignarCargo(usuarioId, select) {
     const msg = document.getElementById('msgCargo-' + usuarioId);
     select.disabled = true;
@@ -9656,7 +9686,14 @@ var supabase = function(e) {
     if (!error) {
       const persona = personasAreaGestion.find(p => p.id === usuarioId);
       if (persona) persona.cargo_id = select.value ? Number(select.value) : null;
+      const nuevoCargo = select.value ? Number(select.value) : null;
+      cargosOcupados = cargosOcupados.filter(u => u.id !== usuarioId);
+      if (nuevoCargo) cargosOcupados.push({ id: usuarioId, nombre_completo: persona?.nombre_completo || '', cargo_id: nuevoCargo });
       dibujarOrganigrama();
+    } else {
+      // Volver a mostrar el cargo que tenía
+      const persona = personasAreaGestion.find(p => p.id === usuarioId);
+      select.value = persona?.cargo_id ? String(persona.cargo_id) : '';
     }
     if (!error) setTimeout(() => { msg.textContent = ''; }, 2500);
   }
@@ -10246,10 +10283,12 @@ var supabase = function(e) {
   }
 
   async function cargarDatosOrganigrama() {
-    const [cargos, filas] = await Promise.all([
-      sb.from('cargos').select('id, nombre').order('nombre'),
-      sb.from('organigrama').select('area_id, cargo_id, nivel, jefe_cargo_id')
+    const [cargos, filas, ocupados] = await Promise.all([
+      sb.from('cargos').select('id, nombre, unico').order('nombre'),
+      sb.from('organigrama').select('area_id, cargo_id, nivel, jefe_cargo_id'),
+      sb.from('usuarios').select('id, nombre_completo, cargo_id').eq('activo', true).not('cargo_id', 'is', null)
     ]);
+    cargosOcupados = ocupados.error ? [] : ocupados.data;
     if (cargos.error || filas.error) {
       mostrarMensajeOrganigrama('No se pudo cargar el organigrama: ' + (cargos.error || filas.error).message, true);
       return;
@@ -10259,6 +10298,15 @@ var supabase = function(e) {
   }
 
   const nombreCargoOrg = (id) => organigramaCargos.find(c => c.id === id)?.nombre || '—';
+  let cargosOcupados = []; // [{id, nombre_completo, cargo_id}] personas activas con cargo
+  const esCargoUnico = (id) => !!organigramaCargos.find(c => c.id === id)?.unico;
+
+  // Opción de cargo para una persona: si el cargo es único y ya lo tiene otra persona, aparece deshabilitado
+  function opcionCargoHtml(id, seleccionado, personaId) {
+    const otro = esCargoUnico(id) ? cargosOcupados.find(u => u.cargo_id === id && u.id !== personaId) : null;
+    const texto = nombreCargoOrg(id) + (otro ? ` — asignado a ${otro.nombre_completo}` : '');
+    return `<option value="${id}" ${id === seleccionado ? 'selected' : ''} ${otro ? 'disabled' : ''}>${escaparHtml(texto)}</option>`;
+  }
 
   function mostrarMensajeOrganigrama(texto, esError) {
     const el = document.getElementById('mensajeOrganigrama');
@@ -10295,13 +10343,14 @@ var supabase = function(e) {
       cont.innerHTML = `
         <div style="overflow-x:auto;">
         <table class="tabla-requisiciones">
-          <thead><tr><th>Cargo</th><th>Jefe inmediato</th><th>Personas</th><th style="width:80px;"></th></tr></thead>
+          <thead><tr><th>Cargo</th><th>Jefe inmediato</th><th>Personas</th><th style="width:60px; text-align:center;" title="Un cargo único solo puede estar en un área y tenerlo una persona">Único</th><th style="width:80px;"></th></tr></thead>
           <tbody>
             ${filas.map(f => `
               <tr>
                 <td>${escaparHtml(nombreCargoOrg(f.cargo_id))}</td>
                 <td><select onchange="actualizarFilaOrganigrama(${f.area_id}, ${f.cargo_id}, 'jefe_cargo_id', this.value)" style="width:100%; padding:4px; border:1px solid #B7C2CE; border-radius:4px;">${opcionesJefeHtml(f.area_id, f.cargo_id, f.jefe_cargo_id)}</select></td>
                 <td style="font-size:13px;">${personasConCargoHtml(f.cargo_id)}</td>
+                <td style="text-align:center;"><input type="checkbox" ${esCargoUnico(f.cargo_id) ? 'checked' : ''} onchange="marcarCargoUnico(${f.cargo_id}, this)" title="Único: solo una persona y una sola área" style="width:16px; height:16px; cursor:pointer;"></td>
                 <td><button class="peligro" onclick="quitarCargoOrganigrama(${f.area_id}, ${f.cargo_id})">Quitar</button></td>
               </tr>`).join('')}
           </tbody>
@@ -10312,9 +10361,26 @@ var supabase = function(e) {
     // Formulario para agregar: cargos que aún no están en esta área
     const enArea = new Set(filas.map(f => f.cargo_id));
     document.getElementById('nuevoCargoOrganigrama').innerHTML = '<option value="">Seleccione el cargo...</option>' +
-      organigramaCargos.filter(c => !enArea.has(c.id)).map(c => `<option value="${c.id}">${escaparHtml(c.nombre)}</option>`).join('');
+      organigramaCargos.filter(c => !enArea.has(c.id)).map(c => {
+        const otraArea = c.unico ? organigramaFilas.find(f => f.cargo_id === c.id && f.area_id !== areaId) : null;
+        const nombreOtra = otraArea ? (catalogoAreas.find(a => a.id === otraArea.area_id)?.nombre || '') : '';
+        return `<option value="${c.id}" ${otraArea ? 'disabled' : ''}>${escaparHtml(c.nombre + (otraArea ? ` — único, ya está en ${nombreOtra}` : ''))}</option>`;
+      }).join('');
     document.getElementById('nuevoNivelOrganigrama').innerHTML = opcionesNivelHtml('').replace('>—<', '>Nivel<');
     document.getElementById('nuevoJefeOrganigrama').innerHTML = opcionesJefeHtml(areaId, null, null).replace('— Sin jefe —', 'Jefe inmediato...');
+  }
+
+  async function marcarCargoUnico(cargoId, casilla) {
+    const { error } = await sb.rpc('marcar_cargo_unico', { p_cargo_id: cargoId, p_unico: casilla.checked });
+    if (error) {
+      casilla.checked = !casilla.checked;
+      mostrarMensajeOrganigrama(error.message, true);
+      return;
+    }
+    const cargo = organigramaCargos.find(c => c.id === cargoId);
+    if (cargo) cargo.unico = casilla.checked;
+    mostrarMensajeOrganigrama(casilla.checked ? 'Marcado como único ✓' : 'Ya no es único ✓');
+    dibujarOrganigrama();
   }
 
   function personasConCargoHtml(cargoId) {
