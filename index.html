@@ -9026,6 +9026,8 @@ var supabase = function(e) {
     .barra-est .cifra { text-align: right; color: #334155; font-weight: 600; white-space: nowrap; }
     .tiempo-est { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px dashed #E2E8F0; }
     .tiempo-est:last-child { border-bottom: none; }
+    .falta { color: #B3402F; font-style: italic; }
+    .resaltar-card { box-shadow: 0 0 0 3px #1CA7A0; transition: box-shadow .3s; }
     .fondo-modal { position: fixed; inset: 0; background: rgba(16,36,62,0.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
     .caja-modal { background: #fff; border-radius: 10px; padding: 22px; width: 100%; max-width: 460px; box-shadow: 0 10px 30px rgba(16,36,62,0.25); }
     .caja-modal textarea { width: 100%; min-height: 90px; padding: 8px; border: 1px solid #B7C2CE; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 14px; }
@@ -9229,6 +9231,29 @@ var supabase = function(e) {
         <div class="ok-msg" id="crearUsuarioOk"></div>
       </div>
 
+    <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+      <button id="btnGestionPorArea" class="acento" onclick="cambiarVistaGestion('area')">Por área</button>
+      <button id="btnGestionUsuarios" class="secundario" onclick="cambiarVistaGestion('usuarios')">Gestión de usuarios</button>
+    </div>
+
+    <!-- Gestión de usuarios: lista de todos los usuarios -->
+    <div id="vistaGestionUsuarios" class="hidden">
+      <div class="filtros-seg">
+        <input type="text" id="buscarUsuario" oninput="dibujarListaUsuarios()" placeholder="Buscar por nombre...">
+        <select id="filtroAreaUsuarios" onchange="dibujarListaUsuarios()"></select>
+        <select id="filtroFaltantesUsuarios" onchange="dibujarListaUsuarios()">
+          <option value="todos">Todos</option>
+          <option value="sin_area">Sin área</option>
+          <option value="sin_cargo">Sin cargo</option>
+          <option value="sin_rol">Sin rol</option>
+          <option value="inactivos">Inactivos</option>
+        </select>
+      </div>
+      <div id="resumenUsuarios" style="font-size:13px; color:#64748b; margin-bottom:8px;"></div>
+      <div id="listaUsuarios" style="overflow-x:auto;"><div class="cargando">Cargando usuarios...</div></div>
+    </div>
+
+    <div id="vistaGestionPorArea">
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
       <label for="selectAreaOrganigrama" style="font-size:14px;">Área:</label>
       <select id="selectAreaOrganigrama" onchange="cambiarAreaGestion()" style="padding:6px 10px; border:1px solid #B7C2CE; border-radius:4px; font-size:14px;"></select>
@@ -9254,6 +9279,7 @@ var supabase = function(e) {
     <h2 style="font-size:17px; margin:28px 0 4px; color:#10243E;">Personas del área</h2>
     <p style="color:#64748b; font-size:13px; margin:0 0 10px;">Cargo y roles de cada persona. Los cambios se guardan al instante.</p>
     <div id="listaPersonasArea"><div class="cargando">Cargando personas...</div></div>
+    </div>
   </div>
 
   <!-- ============ SECCIÓN: DETALLE DE REQUISICIÓN (solo lectura) ============ -->
@@ -9545,6 +9571,7 @@ var supabase = function(e) {
       ['nuevoUsuarioPrimerNombre', 'nuevoUsuarioSegundoNombre', 'nuevoUsuarioPrimerApellido', 'nuevoUsuarioSegundoApellido', 'nuevoUsuarioEmail', 'nuevoUsuarioPassword'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('nuevoUsuarioArea').value = '';
       await cargarDatosOrganigrama(); // actualiza qué cargos únicos quedaron ocupados
+      if (vistaGestion === 'usuarios') await cargarListaUsuarios();
       llenarSelectCargoNuevoUsuario();
 
       if (areaActualId !== null) await cargarPersonasDeArea(areaActualId);
@@ -9586,6 +9613,7 @@ var supabase = function(e) {
   function renderPersonaCard(cont, persona) {
     const card = document.createElement('div');
     card.className = 'persona-card';
+    card.id = 'persona-' + persona.id;
 
     const roles = (persona.usuario_roles || []).filter(ur => ur.roles);
 
@@ -10270,7 +10298,102 @@ var supabase = function(e) {
     await cargarDatosOrganigrama();
     llenarSelectAreaNuevoUsuario();
     llenarSelectCargoNuevoUsuario();
+    await cambiarVistaGestion('area');
     await cambiarAreaGestion();
+  }
+
+  // ---- Gestión de usuarios: todos los usuarios en una lista ----
+  let vistaGestion = 'area';
+  let todosLosUsuarios = [];
+
+  async function cambiarVistaGestion(vista) {
+    vistaGestion = vista;
+    document.getElementById('btnGestionPorArea').className = vista === 'area' ? 'acento' : 'secundario';
+    document.getElementById('btnGestionUsuarios').className = vista === 'usuarios' ? 'acento' : 'secundario';
+    document.getElementById('vistaGestionPorArea').classList.toggle('hidden', vista !== 'area');
+    document.getElementById('vistaGestionUsuarios').classList.toggle('hidden', vista !== 'usuarios');
+    if (vista === 'usuarios') await cargarListaUsuarios();
+  }
+
+  async function cargarListaUsuarios() {
+    const filtroArea = document.getElementById('filtroAreaUsuarios');
+    if (!filtroArea.options.length) {
+      filtroArea.innerHTML = '<option value="todas">Todas las áreas</option>' +
+        [...catalogoAreas].sort((x, y) => x.nombre.localeCompare(y.nombre, 'es')).map(a => `<option value="${a.id}">${escaparHtml(a.nombre)}</option>`).join('');
+    }
+    document.getElementById('listaUsuarios').innerHTML = '<div class="cargando">Cargando usuarios...</div>';
+    const { data, error } = await sb.from('usuarios')
+      .select('id, nombre_completo, area_id, cargo_id, activo, usuario_roles(roles(nombre))')
+      .order('nombre_completo');
+    if (error) { document.getElementById('listaUsuarios').innerHTML = '<div class="error-msg">No se pudieron cargar los usuarios: ' + escaparHtml(error.message) + '</div>'; return; }
+    todosLosUsuarios = data;
+    dibujarListaUsuarios();
+  }
+
+  function dibujarListaUsuarios() {
+    const texto = normalizarTexto(document.getElementById('buscarUsuario').value);
+    const area = document.getElementById('filtroAreaUsuarios').value;
+    const faltan = document.getElementById('filtroFaltantesUsuarios').value;
+    const rolesDe = (u) => (u.usuario_roles || []).map(ur => ur.roles?.nombre).filter(Boolean);
+    const lista = todosLosUsuarios.filter(u => {
+      if (texto && !normalizarTexto(u.nombre_completo).includes(texto)) return false;
+      if (area !== 'todas' && String(u.area_id) !== area) return false;
+      if (faltan === 'sin_area' && u.area_id) return false;
+      if (faltan === 'sin_cargo' && u.cargo_id) return false;
+      if (faltan === 'sin_rol' && rolesDe(u).length) return false;
+      if (faltan === 'inactivos' && u.activo) return false;
+      return true;
+    });
+    const total = todosLosUsuarios.length;
+    const sinArea = todosLosUsuarios.filter(u => !u.area_id).length;
+    const sinCargo = todosLosUsuarios.filter(u => !u.cargo_id).length;
+    const sinRol = todosLosUsuarios.filter(u => !rolesDe(u).length).length;
+    document.getElementById('resumenUsuarios').innerHTML =
+      `${total} usuarios · <span class="${sinArea ? 'falta' : ''}">${sinArea} sin área</span> · <span class="${sinCargo ? 'falta' : ''}">${sinCargo} sin cargo</span> · <span class="${sinRol ? 'falta' : ''}">${sinRol} sin rol</span>` +
+      (lista.length !== total ? ` · mostrando ${lista.length}` : '');
+
+    if (!lista.length) { document.getElementById('listaUsuarios').innerHTML = '<p class="sin-roles">No hay usuarios para mostrar.</p>'; return; }
+    const nombreArea = (id) => catalogoAreas.find(a => a.id === id)?.nombre;
+    document.getElementById('listaUsuarios').innerHTML = `
+      <table class="tabla-requisiciones">
+        <thead><tr><th>Nombre</th><th>Área</th><th>Cargo</th><th>Roles</th><th></th></tr></thead>
+        <tbody>
+          ${lista.map(u => {
+            const roles = rolesDe(u);
+            return `<tr>
+              <td>${escaparHtml(u.nombre_completo)}${u.activo ? '' : ' <span style="color:#B3402F; font-size:12px;">(inactivo)</span>'}</td>
+              <td>${u.area_id ? escaparHtml(nombreArea(u.area_id) || '—') : `<select onchange="asignarAreaDesdeLista('${u.id}', this)" style="width:auto; padding:3px 6px; font-size:12px; border:1px solid #F2B8B5; border-radius:4px; color:#B3402F;">
+                  <option value="">Sin área · asignar...</option>
+                  ${[...catalogoAreas].sort((x, y) => x.nombre.localeCompare(y.nombre, 'es')).map(a => `<option value="${a.id}">${escaparHtml(a.nombre)}</option>`).join('')}
+                </select>`}</td>
+              <td style="font-size:13px;">${u.cargo_id ? escaparHtml(nombreCargoOrg(u.cargo_id)) : '<span class="falta">Sin cargo</span>'}</td>
+              <td>${roles.length ? roles.map(r => `<span class="badge-rol" style="display:inline-flex; margin:2px 4px 2px 0;">${escaparHtml(r)}</span>`).join('') : '<span class="falta">Sin rol</span>'}</td>
+              <td>${u.area_id ? `<button class="secundario" style="padding:4px 10px; font-size:12px; white-space:nowrap;" onclick="irAPersonaEnArea(${u.area_id}, '${u.id}')">Editar en su área</button>` : ''}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  async function asignarAreaDesdeLista(usuarioId, select) {
+    if (!select.value) return;
+    select.disabled = true;
+    const { error } = await sb.rpc('asignar_area_usuario', { p_usuario: usuarioId, p_area_id: Number(select.value) });
+    if (error) { alert('No se pudo asignar el área: ' + error.message); select.disabled = false; select.value = ''; return; }
+    await cargarListaUsuarios();
+  }
+
+  // Lleva a la vista "Por área" con el área de la persona y resalta su tarjeta
+  async function irAPersonaEnArea(areaId, usuarioId) {
+    document.getElementById('selectAreaOrganigrama').value = String(areaId);
+    await cambiarVistaGestion('area');
+    await cambiarAreaGestion();
+    const card = document.getElementById('persona-' + usuarioId);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.add('resaltar-card');
+      setTimeout(() => card.classList.remove('resaltar-card'), 2500);
+    }
   }
 
   // Al elegir un área: se dibujan sus cargos y sus personas
