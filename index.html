@@ -9303,7 +9303,8 @@ var supabase = function(e) {
   // ---- Estado en memoria ----
   let usuarioActual = null;      // fila de la tabla usuarios para el usuario logueado
   let puedeGestionarRoles = false;   // solo Developer
-  let puedeVerTodasLasAreas = false; // Developer, Director general, Gerente de Talento Humano
+  let puedeVerTodasLasAreas = false; // Developer, Director, Gerente de Talento Humano
+  let veEstadisticasDeTodo = false;  // Developer y Director (Director General / Director de Operaciones)
   let esAdmin = false;               // Admin: puede cancelar requisiciones de su área
   let catalogoRoles = [];        // [{id, nombre}]
   let catalogoAreas = [];        // [{id, nombre}]
@@ -9336,6 +9337,7 @@ var supabase = function(e) {
     usuarioActual = null;
     puedeGestionarRoles = false;
     puedeVerTodasLasAreas = false;
+    veEstadisticasDeTodo = false;
     esAdmin = false;
     iframeRequisicionCargado = false;
     vistaRequisiciones = 'area';
@@ -9372,7 +9374,8 @@ var supabase = function(e) {
     const nombresRoles = (perfil.usuario_roles || []).map(ur => ur.roles?.nombre).filter(Boolean);
     puedeGestionarRoles = nombresRoles.includes('Developer');
     esAdmin = nombresRoles.includes('Admin');
-    puedeVerTodasLasAreas = nombresRoles.some(r => ['Developer', 'Director general', 'Gerente de Talento Humano'].includes(r));
+    puedeVerTodasLasAreas = nombresRoles.some(r => ['Developer', 'Director', 'Gerente de Talento Humano'].includes(r));
+    veEstadisticasDeTodo = nombresRoles.some(r => ['Developer', 'Director'].includes(r));
 
     const iniciales = perfil.nombre_completo.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('');
     document.getElementById('avatarUsuarioActual').textContent = iniciales;
@@ -10109,9 +10112,16 @@ var supabase = function(e) {
     return Object.entries(conteo).sort((a, b) => b[1] - a[1]);
   }
 
+  // Estadísticas: Developer y Director ven todas las áreas (con el filtro de arriba); los demás, solo su área
+  function datosEstadisticas() {
+    if (veEstadisticasDeTodo) return seguimientoDelAreaFiltrada();
+    const miArea = catalogoAreas.find(a => a.id === usuarioActual?.area_id)?.nombre;
+    return datosSeguimiento.filter(r => r.area === miArea);
+  }
+
   function dibujarEstadisticas() {
     const cont = document.getElementById('vistaEstadisticas');
-    const datos = seguimientoDelAreaFiltrada();
+    const datos = datosEstadisticas();
     const total = datos.length;
     const enProceso = datos.filter(r => ['generada', 'pendiente_firmas'].includes(r.estado));
     const n = (e) => datos.filter(r => r.estado === e).length;
@@ -10165,7 +10175,7 @@ var supabase = function(e) {
     }
 
     cont.innerHTML = `
-      <p style="color:#64748b; font-size:13px; margin:0 0 12px;">Haz clic en un indicador o en una barra para ver esas requisiciones con su seguimiento.</p>
+      <p style="color:#64748b; font-size:13px; margin:0 0 12px;">${veEstadisticasDeTodo ? '' : `Indicadores del área <strong>${escaparHtml(catalogoAreas.find(a => a.id === usuarioActual?.area_id)?.nombre || '—')}</strong>. `}Haz clic en un indicador o en una barra para ver esas requisiciones con su seguimiento.</p>
       <div class="kpis">
         ${kpi(total, 'Total', '#10243E', 'todas', 'todas')}
         ${kpi(enProceso.length, 'En proceso', '#2563EB', 'en_proceso', 'en_proceso')}
@@ -10176,7 +10186,7 @@ var supabase = function(e) {
       <div class="graficas">
         ${graficaBarrasHtml('Por estado', contarPor(datos, r => r.estado).map(([k, v]) => ({ clave: k, etiqueta: ETIQUETAS_ESTADO[k] || k, valor: v, color: COLOR_ESTADO[k] })), total, 'estado')}
         ${graficaBarrasHtml('Dónde están detenidas (en proceso)', detenidas, enProceso.length, 'fase')}
-        ${graficaBarrasHtml('Por área', contarPor(datos, r => r.area).map(([k, v]) => ({ clave: k, etiqueta: k, valor: v })), total, 'area')}
+        ${veEstadisticasDeTodo ? graficaBarrasHtml('Por área', contarPor(datos, r => r.area).map(([k, v]) => ({ clave: k, etiqueta: k, valor: v })), total, 'area') : ''}
         ${graficaBarrasHtml('Por tipo de requisición', contarPor(datos, r => r.tipo_requisicion).map(([k, v]) => ({ clave: k, etiqueta: k, valor: v, color: '#10243E' })), total, 'tipo')}
         <div class="grafica"><h3>Tiempos promedio</h3>${filasTiempo}
           <div style="font-size:11px; color:#94a3b8; margin-top:6px;">Cada firma se mide desde la firma anterior. Solo cuenta requisiciones con fechas registradas.</div>
