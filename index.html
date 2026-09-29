@@ -9303,7 +9303,7 @@ var supabase = function(e) {
   // ---- Estado en memoria ----
   let usuarioActual = null;      // fila de la tabla usuarios para el usuario logueado
   let puedeGestionarRoles = false;   // solo Developer
-  let puedeVerTodasLasAreas = false; // Developer, Director, Gerente de Talento Humano
+  let puedeVerTodasLasAreas = false; // Developer y Director
   let veEstadisticasDeTodo = false;  // Developer y Director (Director General / Director de Operaciones)
   let esAdmin = false;               // Admin: puede cancelar requisiciones de su área
   let catalogoRoles = [];        // [{id, nombre}]
@@ -9374,7 +9374,7 @@ var supabase = function(e) {
     const nombresRoles = (perfil.usuario_roles || []).map(ur => ur.roles?.nombre).filter(Boolean);
     puedeGestionarRoles = nombresRoles.includes('Developer');
     esAdmin = nombresRoles.includes('Admin');
-    puedeVerTodasLasAreas = nombresRoles.some(r => ['Developer', 'Director', 'Gerente de Talento Humano'].includes(r));
+    puedeVerTodasLasAreas = nombresRoles.some(r => ['Developer', 'Director'].includes(r));
     veEstadisticasDeTodo = nombresRoles.some(r => ['Developer', 'Director'].includes(r));
 
     const iniciales = perfil.nombre_completo.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('');
