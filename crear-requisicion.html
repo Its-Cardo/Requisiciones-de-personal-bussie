@@ -22327,7 +22327,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // Conexión al proyecto de Supabase (URL y anon key son públicas y seguras de exponer en el navegador)
     const SUPABASE_URL = "https://xkkxxogkdznbcbswpqjm.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhra3h4b2drZHpuYmNic3dwcWptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwOTc2NzAsImV4cCI6MjEwNDY3MzY3MH0.nNgewAI4SeVuDGKkX95CAtNjbS5wXRbJOjpe5rXiGIQ";
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Reintento automático: si Supabase responde "JWT issued at future" (pequeña diferencia de reloj
+    // justo después de iniciar sesión o renovar la sesión), se espera un momento y se reintenta.
+    async function fetchConReintento(url, opciones, intento = 0) {
+      const resp = await fetch(url, opciones);
+      if (intento < 2 && (resp.status === 401 || resp.status === 403)) {
+        let texto = '';
+        try { texto = await resp.clone().text(); } catch (_) {}
+        if (/issued at future|iat/i.test(texto) && /future/i.test(texto)) {
+          await new Promise(r => setTimeout(r, 2000 * (intento + 1)));
+          return fetchConReintento(url, opciones, intento + 1);
+        }
+      }
+      return resp;
+    }
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { fetch: (url, opciones) => fetchConReintento(url, opciones) } });
     let usuarioActual = null; // Guarda { id, nombre_completo } una vez inicia sesión
     let ultimaRequisicionGenerada = null; // Guarda { numero_consecutivo, anio } de la última requisición generada en esta sesión
   </script>
@@ -22881,7 +22896,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Llama a la función "firmas" de Supabase con un FormData
   async function llamarFuncionFirmas(formData) {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    const resp = await fetch(SUPABASE_URL + '/functions/v1/firmas', {
+    const resp = await fetchConReintento(SUPABASE_URL + '/functions/v1/firmas', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + (session ? session.access_token : ''), 'apikey': SUPABASE_ANON_KEY },
       body: formData
@@ -23046,6 +23061,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       alert("Hubo un error: " + error.message);
     }
   }
+
+  // Para la página de gestión: ¿ya se generó una requisición en este formulario?
+  function hayRequisicionGenerada() { return !!ultimaRequisicionGenerada; }
 
   // Limpia el formulario y olvida la última requisición generada, para empezar una completamente nueva
   function nuevaRequisicion() {

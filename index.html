@@ -9143,7 +9143,12 @@ var supabase = function(e) {
     </div>
 
     <!-- Estadísticas -->
-    <div id="vistaEstadisticas" class="hidden"></div>
+    <div id="vistaEstadisticas" class="hidden">
+      <div class="filtros-seg" style="margin-bottom:10px;">
+        <input type="text" id="buscarEstadisticas" oninput="dibujarEstadisticas()" placeholder="🔍 Buscar requisición por número o cargo...">
+      </div>
+      <div id="contenidoEstadisticas"></div>
+    </div>
     <!-- Ventana para rechazar -->
     <div id="modalRechazar" class="fondo-modal hidden">
       <div class="caja-modal">
@@ -9298,7 +9303,22 @@ var supabase = function(e) {
   // ---- Configuración de Supabase ----
   const SUPABASE_URL = 'https://xkkxxogkdznbcbswpqjm.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_J138u15pam9LauuNNwkw8A_JiPhrEbh';
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Reintento automático: si Supabase responde "JWT issued at future" (pequeña diferencia de reloj
+  // justo después de iniciar sesión o renovar la sesión), se espera un momento y se reintenta.
+  async function fetchConReintento(url, opciones, intento = 0) {
+    const resp = await fetch(url, opciones);
+    if (intento < 2 && (resp.status === 401 || resp.status === 403)) {
+      let texto = '';
+      try { texto = await resp.clone().text(); } catch (_) {}
+      if (/issued at future|iat/i.test(texto) && /future/i.test(texto)) {
+        await new Promise(r => setTimeout(r, 2000 * (intento + 1)));
+        return fetchConReintento(url, opciones, intento + 1);
+      }
+    }
+    return resp;
+  }
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { fetch: (url, opciones) => fetchConReintento(url, opciones) } });
 
   // ---- Estado en memoria ----
   let usuarioActual = null;      // fila de la tabla usuarios para el usuario logueado
@@ -9440,6 +9460,13 @@ var supabase = function(e) {
     if (!iframeRequisicionCargado) {
       document.getElementById('iframeRequisicion').src = 'crear-requisicion.html';
       iframeRequisicionCargado = true;
+    } else {
+      // Si ya se había generado una requisición, el formulario se limpia para empezar una nueva
+      // (la anterior queda guardada y, si le falta el PDF, aparece con aviso en Mis requisiciones)
+      try {
+        const ventana = document.getElementById('iframeRequisicion').contentWindow;
+        if (ventana && ventana.hayRequisicionGenerada && ventana.hayRequisicionGenerada()) ventana.nuevaRequisicion();
+      } catch (e) { console.error(e); }
     }
   }
 
@@ -9554,7 +9581,7 @@ var supabase = function(e) {
 
     try {
       const { data: { session } } = await sb.auth.getSession();
-      const resp = await fetch(SUPABASE_URL + '/functions/v1/crear-usuario', {
+      const resp = await fetchConReintento(SUPABASE_URL + '/functions/v1/crear-usuario', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -9869,7 +9896,7 @@ var supabase = function(e) {
   // ================== FIRMAS: PENDIENTES POR FIRMAR ==================
   async function llamarFuncionFirmas(formData) {
     const { data: { session } } = await sb.auth.getSession();
-    const resp = await fetch(SUPABASE_URL + '/functions/v1/firmas', {
+    const resp = await fetchConReintento(SUPABASE_URL + '/functions/v1/firmas', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + (session ? session.access_token : ''), 'apikey': SUPABASE_ANON_KEY },
       body: formData
@@ -10120,7 +10147,7 @@ var supabase = function(e) {
   }
 
   function dibujarEstadisticas() {
-    const cont = document.getElementById('vistaEstadisticas');
+    const cont = document.getElementById('contenidoEstadisticas');
     const datos = datosEstadisticas();
     const total = datos.length;
     const enProceso = datos.filter(r => ['generada', 'pendiente_firmas'].includes(r.estado));
@@ -10157,7 +10184,14 @@ var supabase = function(e) {
     const detenidas = contarPor(enProceso, faseActual).map(([k, v]) => ({ clave: k, etiqueta: NOMBRE_FASE[k] || k, valor: v, color: '#2563EB' }));
 
     let lista = '';
-    if (filtroEstadistica) {
+    const busqueda = normalizarTexto(document.getElementById('buscarEstadisticas').value);
+    if (busqueda) {
+      // La búsqueda tiene prioridad sobre el filtro de las gráficas
+      const encontradas = datos.filter(r => normalizarTexto(`#${r.numero_consecutivo}-${r.anio} ${r.numero_consecutivo} ${r.nombre_cargo || ''}`).includes(busqueda.replace(/^#/, '')));
+      lista = `
+        <div style="font-weight:700; color:#10243E; margin:18px 0 8px;">Resultados de la búsqueda (${encontradas.length})</div>
+        ${encontradas.map(r => filaSeguimientoHtml(r, 'e')).join('') || '<p class="sin-roles">No se encontraron requisiciones.</p>'}`;
+    } else if (filtroEstadistica) {
       const f = filtroEstadistica;
       const filtradas = datos.filter(r =>
         f.tipo === 'todas' ? true :
@@ -10198,7 +10232,11 @@ var supabase = function(e) {
   function aplicarFiltroEstadistica(tipo, valor, titulo) {
     filtroEstadistica = tipo ? { tipo, valor, titulo: tipo === 'fase' || tipo === 'estado' || tipo === 'area' || tipo === 'tipo' ? titulo : titulo } : null;
     dibujarEstadisticas();
-    if (tipo) document.querySelector('#vistaEstadisticas .fila-seg, #vistaEstadisticas .sin-roles:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (tipo) {
+      document.getElementById('buscarEstadisticas').value = '';
+      dibujarEstadisticas();
+      document.querySelector('#contenidoEstadisticas .fila-seg, #contenidoEstadisticas .sin-roles:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
   async function subirPdfOriginalSeguimiento(idRequisicion, boton) {
