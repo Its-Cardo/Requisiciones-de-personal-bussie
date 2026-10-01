@@ -10154,15 +10154,10 @@ var supabase = function(e) {
 
   function construirCorreoEml(c, pdfBytes) {
     const nombrePdf = `Requisicion_${c.numero}_firmada.pdf`;
-    const asunto = `Requisición de personal #${c.numero} – ${c.cargo} – ${c.area}`;
-    const fila = (k, v) => `<tr><td style="padding:4px 12px 4px 0; color:#475569;">${k}</td><td style="padding:4px 0;"><strong>${escaparHtml(v || '—')}</strong></td></tr>`;
+    const asunto = `Requisición de personal – ${c.cargo} – ${c.area}`;
     const html = `<div style="font-family:Segoe UI, Arial, sans-serif; font-size:14px; color:#1f2937;">
       <p>Buen día,</p>
-      <p>Envío la requisición de personal <strong>#${escaparHtml(c.numero)}</strong> con todas las firmas, para continuar con el proceso.</p>
-      <table style="border-collapse:collapse; font-size:14px;">
-        ${fila('Cargo', c.cargo)}${fila('Área', c.area)}${fila('Tipo de requisición', c.tipo)}${fila('Centro de costo', c.centro_costo)}${fila('Fecha de solicitud', c.fecha_solicitud)}${fila('Solicitada por', c.solicitante)}
-      </table>
-      <p>Adjunto el PDF firmado.${c.enlace_descarga ? ` También se puede descargar aquí (enlace válido por 30 días): <a href="${c.enlace_descarga}">Descargar PDF firmado</a>` : ''}</p>
+      <p>Por medio del presente hago el envío de la requisición de personal para la vacante de <strong>${escaparHtml(c.cargo)}</strong> del área de <strong>${escaparHtml(c.area)}</strong>.</p>
       <p>Cordialmente,<br>${escaparHtml(usuarioActual?.nombre_completo || '')}</p>
     </div>`;
     const limite = 'REQ_' + Date.now();
