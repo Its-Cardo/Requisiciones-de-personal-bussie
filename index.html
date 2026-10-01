@@ -9145,9 +9145,19 @@ var supabase = function(e) {
         <p style="font-size:13px; color:#64748b; margin:0 0 10px;">Sube el PDF con todas las firmas necesarias. La requisición pasará a "Enviada a Talento Humano".</p>
         <input type="file" id="archivoFirmado" accept="application/pdf,.pdf">
         <div id="modalSubirMensaje" style="font-size:13px; margin-top:8px; color:#b91c1c;"></div>
-        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
+        <div id="botonesSubida" style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
           <button class="secundario" onclick="cerrarModalSubirFirmado()">Volver</button>
           <button id="btnConfirmarSubida" class="acento" style="padding:8px 14px; font-size:14px;" onclick="confirmarSubidaFirmado()">Enviar a Talento Humano</button>
+        </div>
+        <div id="resultadoSubida" class="hidden" style="margin-top:12px;">
+          <div style="background:#F0FAF9; border:1px solid #1CA7A0; border-radius:8px; padding:12px 14px; font-size:14px; color:#10243E;">
+            <div style="font-weight:700; margin-bottom:6px;">✅ Requisición enviada a Talento Humano</div>
+            <div>Se descargó el correo <strong id="nombreArchivoCorreo"></strong>. Ábrelo: se abrirá en Outlook con el PDF adjunto y listo para enviar. Revísalo y da <strong>Enviar</strong>.</div>
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+            <button class="secundario" onclick="descargarCorreoDeNuevo()">✉️ Descargar el correo otra vez</button>
+            <button class="acento" onclick="cerrarModalSubirFirmado()">Cerrar</button>
+          </div>
         </div>
       </div>
     </div>
@@ -9842,6 +9852,7 @@ var supabase = function(e) {
           <button class="secundario" style="padding:4px 12px; font-size:12px;" onclick="verRequisicion('${escaparHtml(String(r.id))}')">Ver</button>
           ${r.estado === 'en_proceso_firmas' && (r.creado_por === usuarioActual?.id || puedeGestionarRoles) ? `<button class="acento" style="margin-left:6px; padding:4px 10px; font-size:12px;" onclick="abrirModalSubirFirmado('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">Subir firmado</button>` : ''}
           ${r.pdf_actual_path ? `<button class="secundario" style="margin-left:6px; padding:4px 10px; font-size:12px;" onclick="descargarPdfFirmas('${escaparHtml(String(r.id))}')" title="Descargar PDF firmado">⬇️ PDF</button>` : ''}
+          ${r.estado === 'enviada_th' && (r.creado_por === usuarioActual?.id || puedeGestionarRoles) ? `<button class="secundario" style="margin-left:6px; padding:4px 10px; font-size:12px;" onclick="correoDeRequisicion('${escaparHtml(String(r.id))}', this)" title="Descargar de nuevo el correo para Talento Humano">✉️ Correo</button>` : ''}
           ${r.estado === 'enviada_th' && puedeGestionarRoles ? `<button class="secundario" style="margin-left:6px; padding:4px 10px; font-size:12px;" onclick="marcarVacanteCubierta('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">✔ Vacante cubierta</button>` : ''}
           ${puedeCancelar(r) ? `<button class="peligro" style="margin-left:6px;" onclick="abrirModalCancelar('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">Declinar</button>` : ''}
         </td>
@@ -10134,15 +10145,100 @@ var supabase = function(e) {
     }
   }
 
+  // ---- Correo a Talento Humano: borrador de Outlook (.eml) con el PDF adjunto ----
+  // El archivo .eml lleva "X-Unsent: 1", así Outlook de escritorio lo abre como un correo NUEVO listo para enviar,
+  // desde la cuenta de quien lo abre.
+  const base64Texto = (texto) => { const b = new TextEncoder().encode(texto); let s = ''; for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, i + 8192)); return btoa(s); };
+  const base64Bytes = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i += 8192) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192)); return btoa(s); };
+  const enLineas = (b64) => b64.replace(/(.{76})/g, '$1\r\n');
+
+  function construirCorreoEml(c, pdfBytes) {
+    const nombrePdf = `Requisicion_${c.numero}_firmada.pdf`;
+    const asunto = `Requisición de personal #${c.numero} – ${c.cargo} – ${c.area}`;
+    const fila = (k, v) => `<tr><td style="padding:4px 12px 4px 0; color:#475569;">${k}</td><td style="padding:4px 0;"><strong>${escaparHtml(v || '—')}</strong></td></tr>`;
+    const html = `<div style="font-family:Segoe UI, Arial, sans-serif; font-size:14px; color:#1f2937;">
+      <p>Buen día,</p>
+      <p>Envío la requisición de personal <strong>#${escaparHtml(c.numero)}</strong> con todas las firmas, para continuar con el proceso.</p>
+      <table style="border-collapse:collapse; font-size:14px;">
+        ${fila('Cargo', c.cargo)}${fila('Área', c.area)}${fila('Tipo de requisición', c.tipo)}${fila('Centro de costo', c.centro_costo)}${fila('Fecha de solicitud', c.fecha_solicitud)}${fila('Solicitada por', c.solicitante)}
+      </table>
+      <p>Adjunto el PDF firmado.${c.enlace_descarga ? ` También se puede descargar aquí (enlace válido por 30 días): <a href="${c.enlace_descarga}">Descargar PDF firmado</a>` : ''}</p>
+      <p>Cordialmente,<br>${escaparHtml(usuarioActual?.nombre_completo || '')}</p>
+    </div>`;
+    const limite = 'REQ_' + Date.now();
+    const lineas = [
+      'X-Unsent: 1',
+      `To: ${c.para}`,
+      ...(c.cc ? [`Cc: ${c.cc}`] : []),
+      `Subject: =?UTF-8?B?${base64Texto(asunto)}?=`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/mixed; boundary="${limite}"`,
+      '',
+      `--${limite}`,
+      'Content-Type: text/html; charset="UTF-8"',
+      'Content-Transfer-Encoding: base64',
+      '',
+      enLineas(base64Texto(html)),
+      '',
+      `--${limite}`,
+      `Content-Type: application/pdf; name="${nombrePdf}"`,
+      `Content-Disposition: attachment; filename="${nombrePdf}"`,
+      'Content-Transfer-Encoding: base64',
+      '',
+      enLineas(base64Bytes(pdfBytes)),
+      '',
+      `--${limite}--`,
+      ''
+    ];
+    return lineas.join('\r\n');
+  }
+
+  function descargarCorreoEml(c, pdfBytes) {
+    const nombre = `Correo_Requisicion_${c.numero}.eml`;
+    const blob = new Blob([construirCorreoEml(c, pdfBytes)], { type: 'message/rfc822' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    return nombre;
+  }
+
+  // Arma de nuevo el correo de una requisición ya enviada (descarga el PDF guardado)
+  async function generarCorreoRequisicion(idRequisicion) {
+    const fd = new FormData();
+    fd.append('accion', 'datos_correo');
+    fd.append('requisicion_id', idRequisicion);
+    const r = await llamarFuncionFirmas(fd);
+    const pdf = new Uint8Array(await (await fetch(r.correo.url_archivo)).arrayBuffer());
+    return descargarCorreoEml(r.correo, pdf);
+  }
+
+  async function correoDeRequisicion(idRequisicion, boton) {
+    boton.disabled = true;
+    try { await generarCorreoRequisicion(idRequisicion); }
+    catch (e) { alert('No se pudo armar el correo: ' + e.message); }
+    boton.disabled = false;
+  }
+
   // ---- Subir el PDF con todas las firmas → "Enviada a Talento Humano" ----
   let requisicionASubir = null;
+  let ultimoCorreo = null; // { datos, pdf } para volver a descargar el correo
   function abrirModalSubirFirmado(id, numero) {
     requisicionASubir = id;
+    ultimoCorreo = null;
     document.getElementById('modalSubirNumero').textContent = numero;
     document.getElementById('archivoFirmado').value = '';
+    document.getElementById('archivoFirmado').disabled = false;
     document.getElementById('modalSubirMensaje').textContent = '';
     document.getElementById('btnConfirmarSubida').disabled = false;
+    document.getElementById('botonesSubida').classList.remove('hidden');
+    document.getElementById('resultadoSubida').classList.add('hidden');
     document.getElementById('modalSubirFirmado').classList.remove('hidden');
+  }
+
+  function descargarCorreoDeNuevo() {
+    if (ultimoCorreo) descargarCorreoEml(ultimoCorreo.datos, ultimoCorreo.pdf);
   }
   function cerrarModalSubirFirmado() {
     requisicionASubir = null;
@@ -10160,8 +10256,14 @@ var supabase = function(e) {
     fd.append('requisicion_id', requisicionASubir);
     fd.append('archivo', input.files[0]);
     try {
-      await llamarFuncionFirmas(fd);
-      cerrarModalSubirFirmado();
+      const r = await llamarFuncionFirmas(fd);
+      const pdf = new Uint8Array(await input.files[0].arrayBuffer());
+      ultimoCorreo = { datos: r.correo, pdf };
+      document.getElementById('nombreArchivoCorreo').textContent = descargarCorreoEml(r.correo, pdf);
+      msg.textContent = '';
+      input.disabled = true;
+      document.getElementById('botonesSubida').classList.add('hidden');
+      document.getElementById('resultadoSubida').classList.remove('hidden');
       refrescarVistaRequisiciones();
     } catch (e) {
       msg.style.color = '#b91c1c'; msg.textContent = 'No se pudo subir: ' + e.message;
