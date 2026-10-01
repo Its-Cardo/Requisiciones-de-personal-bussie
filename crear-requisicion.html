@@ -22444,21 +22444,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       </div>
       <div class="form-group" style="position:relative;">
         <label>Centro de Costo:</label>
-        <select id="centro_costo">
-          <option value="" selected>Seleccione un centro de costo...</option>
-        </select>
-        <input type="text" id="centro_costo_buscar" oninput="soloNumeros(this)" autocomplete="off" placeholder="Escriba el número del centro de costo..." style="display:none; margin-top:6px;">
+        <input type="text" id="centro_costo_texto" autocomplete="off" placeholder="Escriba el número o el nombre del centro de costo...">
+        <input type="hidden" id="centro_costo">
         <div id="lista_centros_costo" class="lista-sugerencias" style="display:none;"></div>
       </div>
       <div class="form-group">
         <label>Ciudad:</label>
         <input type="text" id="ciudad" oninput="soloLetras(this)">
-      </div>
-      <div class="form-group">
-        <label>Jefe inmediato para firma:</label>
-        <select id="jefe_inmediato" required>
-          <option value="" disabled selected>Seleccione primero el cargo...</option>
-        </select>
       </div>
     </div>
 
@@ -22562,16 +22554,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     <div id="resultado-generacion" style="margin-top:12px; font-size:14px;"></div>
 
-    <!-- Paso siguiente: subir el PDF original para iniciar las firmas -->
-    <div id="panel-subir-original" style="display:none; margin-top:16px; padding:14px 16px; border:1px solid #1CA7A0; border-radius:8px; background:#F0FAF9;">
-      <div style="font-weight:700; color:#10243E; margin-bottom:4px;">Paso siguiente: iniciar las firmas</div>
-      <div style="font-size:13px; color:#475569; margin-bottom:10px;">
-        Sube aquí el PDF que guardaste al imprimir, sin modificarlo. Con ese archivo arranca la cadena de firmas: Jefe inmediato → Director de Operaciones (→ Director General si aplica). Al final, el PDF firmado se envía a Talento Humano.
-      </div>
-      <input type="file" id="archivo_original" accept="application/pdf,.pdf" style="margin-bottom:10px;">
-      <button type="button" id="boton-subir-original" onclick="subirPdfOriginal()">📎 Subir PDF e iniciar firmas</button>
-      <div id="mensaje-subir-original" style="margin-top:8px; font-size:13px;"></div>
-    </div>
 
     <div style="margin-top: 10px;">
       <button type="button" class="link-toggle" onclick="nuevaRequisicion()">↺ Empezar una Requisición Nueva (limpiar formulario)</button>
@@ -22679,7 +22661,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       'direccion': document.getElementById('direccion').value,
       'centro_costo': document.getElementById('centro_costo').value,
       'ciudad': document.getElementById('ciudad').value,
-      'jefe_inmediato_cargo': document.getElementById('jefe_inmediato').value,
       
       'tipo_requisicion': document.getElementById('tipo_requisicion').value,
       'motivo_vacante': document.getElementById('motivo_vacante').value,
@@ -22722,9 +22703,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
         datos.cont = String(registro.numero_consecutivo);
         ultimaRequisicionGenerada = { id: registro.id, numero_consecutivo: registro.numero_consecutivo, anio: registro.anio };
-        mostrarPanelSubirOriginal(registro.id);
         mensajeDiv.style.color = '#15803d';
-        mensajeDiv.textContent = `✅ Requisición generada con el número ${registro.numero_consecutivo} (año ${registro.anio}).`;
+        mensajeDiv.textContent = `✅ Requisición generada con el número ${registro.numero_consecutivo} (año ${registro.anio}). Quedó "En proceso de firmas": gestiona las firmas y, cuando las tengas todas, sube el PDF firmado desde Gestión de requisiciones.`;
       }
 
       // 5. Generar el .docx real, igual que antes, con la plantilla oficial
@@ -22783,7 +22763,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   async function cargarModoLectura(id) {
     const { data: req, error } = await supabaseClient
       .from('requisiciones')
-      .select('id, numero_consecutivo, anio, estado, nombre_solicitante, datos_formulario, motivo_cancelacion, cancelado_en, cancelado_por_nombre, creado_por, pdf_actual_path, motivo_rechazo, rechazado_en, rechazado_por_nombre')
+      .select('id, numero_consecutivo, anio, estado, nombre_solicitante, creado_en, datos_formulario, motivo_cancelacion, cancelado_en, cancelado_por_nombre, creado_por, pdf_actual_path, enviada_th_en, enviada_th_por_nombre, vacante_cubierta_en, vacante_cubierta_por_nombre')
       .eq('id', id)
       .single();
 
@@ -22816,9 +22796,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     poner('nombre_cargo', d.nombre_cargo);
     poner('area', d.area);
     poner('direccion', d.direccion);
-    poner('centro_costo', d.centro_costo);
+    mostrarCentroCostoGuardado(d.centro_costo);
     poner('ciudad', d.ciudad);
-    poner('jefe_inmediato', d.jefe_inmediato_cargo);
     poner('tipo_requisicion', d.tipo_requisicion);
     poner('motivo_vacante', d.motivo_vacante);
     poner('tipo_contrato', d.tipo_contrato);
@@ -22845,13 +22824,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     titulo.textContent = `Requisición #${req.numero_consecutivo}-${req.anio}`;
     intro.textContent = 'Consulta en modo solo lectura. Los campos no se pueden modificar.';
 
-    // Si está cancelada, mostrar el motivo en un recuadro rojo arriba del formulario
-    if (req.estado === 'cancelada') {
+    // Si está declinada, mostrar el motivo en un recuadro rojo arriba del formulario
+    if (req.estado === 'declinada') {
       const caja = document.createElement('div');
       caja.style.cssText = 'background:#FDE2E1; border:1px solid #F2B8B5; border-left:5px solid #B3402F; color:#7A2419; border-radius:6px; padding:12px 14px; margin:0 0 18px; font-size:14px;';
       const titulo = document.createElement('div');
       titulo.style.cssText = 'font-weight:700; margin-bottom:4px;';
-      titulo.textContent = 'Requisición cancelada';
+      titulo.textContent = 'Requisición declinada';
       const motivo = document.createElement('div');
       motivo.textContent = 'Motivo: ' + (req.motivo_cancelacion || 'No se registró motivo.');
       caja.append(titulo, motivo);
@@ -22859,7 +22838,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const detalle = document.createElement('div');
         detalle.style.cssText = 'font-size:12px; margin-top:6px; color:#9A3A2C;';
         const fecha = req.cancelado_en ? new Date(req.cancelado_en).toLocaleString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
-        detalle.textContent = 'Cancelada' + (req.cancelado_por_nombre ? ' por ' + req.cancelado_por_nombre : '') + (fecha ? ' el ' + fecha : '');
+        detalle.textContent = 'Declinada' + (req.cancelado_por_nombre ? ' por ' + req.cancelado_por_nombre : '') + (fecha ? ' el ' + fecha : '');
         caja.appendChild(detalle);
       }
       intro.after(caja);
@@ -22867,20 +22846,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     ocultarControlesDeEdicion();
 
-    // Si fue rechazada, mostrar el motivo
-    if (req.estado === 'rechazada') {
-      const caja = document.createElement('div');
-      caja.style.cssText = 'background:#F1F5F9; border:1px solid #CBD5E1; border-left:5px solid #64748B; color:#334155; border-radius:6px; padding:12px 14px; margin:0 0 18px; font-size:14px;';
-      const fecha = req.rechazado_en ? new Date(req.rechazado_en).toLocaleString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
-      caja.innerHTML = '<div style="font-weight:700; margin-bottom:4px;">Requisición rechazada</div>';
-      const m = document.createElement('div'); m.textContent = 'Motivo: ' + (req.motivo_rechazo || '—');
-      const q = document.createElement('div'); q.style.cssText = 'font-size:12px; margin-top:6px;';
-      q.textContent = 'Rechazada' + (req.rechazado_por_nombre ? ' por ' + req.rechazado_por_nombre : '') + (fecha ? ' el ' + fecha : '') + '. Para continuar hay que crear una requisición nueva.';
-      caja.append(m, q);
-      intro.after(caja);
-    }
-
-    await mostrarFlujoDeFirmas(req);
+    mostrarEstadoRequisicion(req);
 
     // Botón para imprimir la requisición guardada (con su mismo número, sin crear uno nuevo)
     const botonImprimir = document.createElement('button');
@@ -22907,37 +22873,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return cuerpo;
   }
 
-  let requisicionParaOriginal = null;
-  function mostrarPanelSubirOriginal(idRequisicion) {
-    requisicionParaOriginal = idRequisicion;
-    document.getElementById('archivo_original').value = '';
-    document.getElementById('archivo_original').disabled = false;
-    document.getElementById('mensaje-subir-original').textContent = '';
-    document.getElementById('boton-subir-original').disabled = false;
-    document.getElementById('panel-subir-original').style.display = 'block';
-  }
-
-  async function subirPdfOriginal() {
-    const input = document.getElementById('archivo_original');
-    const msg = document.getElementById('mensaje-subir-original');
-    const boton = document.getElementById('boton-subir-original');
-    if (!input.files.length) { msg.style.color = '#b91c1c'; msg.textContent = 'Selecciona el PDF que guardaste al imprimir.'; return; }
-    const fd = new FormData();
-    fd.append('accion', 'subir_original');
-    fd.append('requisicion_id', requisicionParaOriginal);
-    fd.append('archivo', input.files[0]);
-    boton.disabled = true;
-    msg.style.color = '#475569'; msg.textContent = 'Subiendo...';
-    try {
-      const r = await llamarFuncionFirmas(fd);
-      msg.style.color = '#15803d'; msg.textContent = '✅ ' + r.mensaje;
-      input.disabled = true;
-    } catch (e) {
-      msg.style.color = '#b91c1c'; msg.textContent = e.message;
-      boton.disabled = false;
-    }
-  }
-
   async function descargarPdfRequisicion(idRequisicion, ruta) {
     const fd = new FormData();
     fd.append('accion', 'descargar');
@@ -22953,54 +22888,30 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   const ETIQUETA_ESTADO_FIRMA = { pendiente: 'Pendiente', firmada: 'Firmada', rechazada: 'Rechazada' };
 
-  // En "Ver": historial de firmas, descarga del PDF y, si aplica, el paso para subir el original
-  async function mostrarFlujoDeFirmas(req) {
+  const ETIQUETA_ESTADO = { en_proceso_firmas: 'En proceso de firmas', enviada_th: 'Enviada a Talento Humano', vacante_cubierta: 'Vacante cubierta', declinada: 'Declinada' };
+  const fmtFecha = (iso) => iso ? new Date(iso).toLocaleString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+  const diasEntre = (a, b) => { const d = (new Date(b) - new Date(a)) / 86400000; return d < 1 ? `${Math.max(1, Math.round(d * 24))} h` : `${d.toFixed(1).replace('.', ',')} días`; };
+
+  // En "Ver": estado, fechas y tiempos, y descarga del PDF firmado si ya se subió
+  function mostrarEstadoRequisicion(req) {
+    if (req.estado === 'declinada') return; // ya tiene su recuadro rojo
     const contenedor = document.getElementById('form-container');
     const zona = document.createElement('div');
-    zona.style.cssText = 'margin:0 0 18px;';
-    contenedor.querySelector('h1 + p').parentNode.insertBefore(zona, document.getElementById('reqForm'));
-
-    // Si quedó pendiente subir el PDF, el recuadro para subirlo va arriba del formulario.
-    // Si ya se subió (la requisición ya no está "Generada"), no aparece.
-    if (req.estado === 'generada' && req.creado_por === usuarioActual?.id) {
-      const panel = document.getElementById('panel-subir-original');
-      panel.style.borderColor = '#B3402F';
-      panel.style.background = '#FDF2F1';
-      panel.querySelector('div').textContent = '⚠️ Pendiente: sube el PDF para iniciar las firmas';
-      zona.appendChild(panel);
-      mostrarPanelSubirOriginal(req.id);
-      return;
+    zona.style.cssText = 'border:1px solid #DCE3EA; border-radius:8px; padding:12px 14px; background:#fff; margin:0 0 18px; font-size:13px; color:#334155;';
+    const lineas = [`<div style="font-weight:700; color:#10243E; margin-bottom:6px;">Estado: ${escaparTexto(ETIQUETA_ESTADO[req.estado] || req.estado)}</div>`,
+      `<div>Generada el ${escaparTexto(fmtFecha(req.creado_en))} por ${escaparTexto(req.nombre_solicitante || '')}</div>`];
+    if (req.enviada_th_en) {
+      lineas.push(`<div>Enviada a Talento Humano el ${escaparTexto(fmtFecha(req.enviada_th_en))} · Tiempo en firmas: <strong>${diasEntre(req.creado_en, req.enviada_th_en)}</strong></div>`);
+    } else {
+      lineas.push(`<div>Tiempo en proceso de firmas hasta hoy: <strong>${diasEntre(req.creado_en, new Date())}</strong></div>`);
     }
-
-    const { data: pasos } = await supabaseClient.from('firmas_requisicion')
-      .select('paso, etiqueta, estado, firmado_por_nombre, nombre_certificado, firmado_en, motivo_rechazo, archivo_path')
-      .eq('requisicion_id', req.id).order('paso');
-    if (!pasos || !pasos.length) return;
-
-    const fmt = (iso) => iso ? new Date(iso).toLocaleString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
-    const colores = { pendiente: '#92400E', firmada: '#15803D', rechazada: '#B3402F' };
-    const filas = pasos.map(p => {
-      const detalle = p.estado === 'firmada'
-        ? `${p.firmado_por_nombre || ''} · ${fmt(p.firmado_en)}`
-        : p.estado === 'rechazada' ? `${p.firmado_por_nombre || ''} · ${fmt(p.firmado_en)} · Motivo: ${p.motivo_rechazo || ''}` : '';
-      return `<tr>
-        <td style="padding:6px 8px; border-bottom:1px solid #E2E8F0;">${p.paso}</td>
-        <td style="padding:6px 8px; border-bottom:1px solid #E2E8F0;">${escaparTexto(p.etiqueta)}</td>
-        <td style="padding:6px 8px; border-bottom:1px solid #E2E8F0; color:${colores[p.estado] || '#334155'}; font-weight:600;">${ETIQUETA_ESTADO_FIRMA[p.estado] || p.estado}</td>
-        <td style="padding:6px 8px; border-bottom:1px solid #E2E8F0; font-size:12px; color:#475569;">${escaparTexto(detalle)}</td>
-      </tr>`;
-    }).join('');
-    zona.innerHTML = `
-      <div style="border:1px solid #DCE3EA; border-radius:8px; padding:12px 14px; background:#fff;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
-          <div style="font-weight:700; color:#10243E;">Firmas</div>
-          ${req.pdf_actual_path ? '<button type="button" id="boton-descargar-pdf" style="width:auto; padding:6px 12px; font-size:13px; margin:0;">⬇️ Descargar PDF actual</button>' : ''}
-        </div>
-        <div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:13px;">
-          <thead><tr style="text-align:left; color:#64748b;"><th style="padding:6px 8px;">Paso</th><th style="padding:6px 8px;">Firmante</th><th style="padding:6px 8px;">Estado</th><th style="padding:6px 8px;">Detalle</th></tr></thead>
-          <tbody>${filas}</tbody>
-        </table></div>
-      </div>`;
+    if (req.vacante_cubierta_en) {
+      lineas.push(`<div>Vacante cubierta el ${escaparTexto(fmtFecha(req.vacante_cubierta_en))} · Tiempo en Talento Humano: <strong>${diasEntre(req.enviada_th_en, req.vacante_cubierta_en)}</strong></div>`);
+    } else if (req.enviada_th_en) {
+      lineas.push(`<div>Tiempo en Talento Humano hasta hoy: <strong>${diasEntre(req.enviada_th_en, new Date())}</strong></div>`);
+    }
+    zona.innerHTML = lineas.join('') + (req.pdf_actual_path ? '<button type="button" id="boton-descargar-pdf" style="width:auto; padding:6px 12px; font-size:13px; margin:10px 0 0;">⬇️ Descargar PDF firmado</button>' : '');
+    contenedor.querySelector('h1 + p').after(zona);
     const botonPdf = document.getElementById('boton-descargar-pdf');
     if (botonPdf) botonPdf.onclick = () => descargarPdfRequisicion(req.id);
   }
@@ -23073,7 +22984,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.getElementById('grupo_duracion').style.display = 'none';
     document.getElementById('resultado-generacion').textContent = '';
     ultimaRequisicionGenerada = null;
-    document.getElementById('panel-subir-original').style.display = 'none';
     fijarAreaDelUsuario();
     reiniciarCargoYCentroCosto();
 
@@ -23110,7 +23020,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   async function cargarCatalogos() {
     const [areas, centros, cargos, relacion, opciones, cargoArea, organigrama] = await Promise.all([
       supabaseClient.from('areas').select('id, nombre'),
-      supabaseClient.from('centros_costo').select('codigo, area_id').eq('activo', true),
+      supabaseClient.from('centros_costo').select('codigo, area_id, nombre').eq('activo', true),
       supabaseClient.from('cargos').select('id, nombre').eq('activo', true),
       supabaseClient.from('cargo_centro_costo').select('cargo_id, centro_costo'),
       supabaseClient.from('opciones_formulario').select('campo, valor, etiqueta, orden').eq('activo', true).order('orden'),
@@ -23152,13 +23062,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!modoCargoLibre) validarCargo();
     });
 
-    document.getElementById('centro_costo').addEventListener('change', alCambiarCentroCosto);
-    document.getElementById('jefe_inmediato').addEventListener('change', alCambiarJefeInmediato);
-    const buscarCentro = document.getElementById('centro_costo_buscar');
-    buscarCentro.addEventListener('input', mostrarSugerenciasCentroCosto);
-    buscarCentro.addEventListener('focus', mostrarSugerenciasCentroCosto);
-    buscarCentro.addEventListener('blur', () => {
+    const textoCentro = document.getElementById('centro_costo_texto');
+    textoCentro.addEventListener('input', () => { document.getElementById('centro_costo').value = ''; mostrarSugerenciasCentroCosto(); validarCentroCosto(); });
+    textoCentro.addEventListener('focus', mostrarSugerenciasCentroCosto);
+    textoCentro.addEventListener('click', mostrarSugerenciasCentroCosto);
+    textoCentro.addEventListener('blur', () => {
       setTimeout(() => { document.getElementById('lista_centros_costo').style.display = 'none'; }, 150);
+      validarCentroCosto();
     });
 
     actualizarCentrosCosto();
@@ -23280,93 +23190,45 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     input.focus();
   }
 
-  // Centro de costo: los del área y cargo elegidos (todos los del área si no hay cargo o es un cargo no existente),
-  // más la opción "Elegir otro centro de costo" al final, que permite buscar entre todos los existentes
-  const OPCION_OTRO_CENTRO_COSTO = '__otro__';
-  let centroCostoOtro = null; // centro de costo elegido con "Elegir otro centro de costo"
+  // ================== CENTRO DE COSTO ==================
+  // Lista de TODOS los centros de costo (número y nombre), con buscador. En el formulario y en el PDF se guarda solo el número.
+  let ultimoCargoFiltrado = null;
+  function actualizarCentrosCosto() { /* el centro de costo ya no depende del área ni del cargo */ }
 
-  // Con cargo elegido: sus centros de costo dentro del área; si en el área no tiene ninguno,
-  // los centros de costo donde existe ese cargo (aunque sean de otra área). Sin cargo: los del área.
-  function centrosFiltrados() {
-    const centros = centrosDelArea();
-    const cargo = modoCargoLibre ? null : cargoElegido();
-    if (!cargo) return centros;
-    const delCargo = [...new Set(catalogo.cargoCentroCosto.filter(r => r.cargo_id === cargo.id).map(r => r.centro_costo))].sort();
-    const enArea = centros.filter(c => delCargo.includes(c));
-    return enArea.length ? enArea : delCargo;
-  }
-
-  let ultimoCargoFiltrado = null; // cargo con el que se filtraron por última vez los centros de costo
-
-  function actualizarCentrosCosto() {
-    const select = document.getElementById('centro_costo');
-    const anterior = select.value;
-    const cargoActual = modoCargoLibre ? null : cargoElegido();
-    ultimoCargoFiltrado = cargoActual ? cargoActual.id : null;
-    const centros = centrosFiltrados();
-    if (centroCostoOtro && centros.includes(centroCostoOtro)) centroCostoOtro = null;
-    select.innerHTML = '';
-    select.appendChild(new Option('Seleccione un centro de costo...', ''));
-    centros.forEach(c => select.appendChild(new Option(c, c)));
-    if (centroCostoOtro) {
-      select.appendChild(new Option(centroCostoOtro + ' (otro centro de costo)', centroCostoOtro));
-    }
-    select.appendChild(new Option('➕ Elegir otro centro de costo', OPCION_OTRO_CENTRO_COSTO));
-
-    const disponibles = centroCostoOtro ? [...centros, centroCostoOtro] : centros;
-    if (disponibles.includes(anterior)) select.value = anterior;
-    else if (centros.length === 1) select.value = centros[0];
-    else select.value = '';
-    select.setCustomValidity('');
-    ocultarBuscadorCentroCosto();
-    actualizarJefeInmediato();
-  }
-
-  function nombreAreaDeCentro(codigo) {
-    const cc = catalogo.centrosCosto.find(c => c.codigo === codigo);
-    const area = cc ? catalogo.areas.find(a => a.id === cc.area_id) : null;
-    return area ? area.nombre : 'Sin área';
-  }
-
-  function alCambiarCentroCosto() {
-    const select = document.getElementById('centro_costo');
-    if (select.value === OPCION_OTRO_CENTRO_COSTO) {
-      select.setCustomValidity('Seleccione un centro de costo de la lista.');
-      const buscar = document.getElementById('centro_costo_buscar');
-      buscar.value = '';
-      buscar.style.display = 'block';
-      buscar.focus();
-    } else {
-      select.setCustomValidity('');
-      ocultarBuscadorCentroCosto();
-    }
-  }
+  const etiquetaCentroCosto = (c) => c.nombre ? `${c.codigo} — ${c.nombre}` : c.codigo;
 
   function mostrarSugerenciasCentroCosto() {
     const lista = document.getElementById('lista_centros_costo');
-    const texto = document.getElementById('centro_costo_buscar').value.trim();
+    const texto = normalizar(document.getElementById('centro_costo_texto').value);
+    const elegido = document.getElementById('centro_costo').value;
+    const todos = [...catalogo.centrosCosto].sort((a, b) => a.codigo.localeCompare(b.codigo));
+    const coincidencias = elegido ? todos : todos.filter(c => normalizar(etiquetaCentroCosto(c)).includes(texto));
     lista.innerHTML = '';
-    const coincidencias = catalogo.centrosCosto.map(c => c.codigo).filter(c => c.includes(texto)).sort();
-    if (coincidencias.length === 0) {
-      lista.innerHTML = '<div class="sin-resultados">No hay centros de costo que coincidan.</div>';
-    }
-    coincidencias.forEach(codigo => {
-      lista.appendChild(crearOpcionCargo(codigo + ' — ' + nombreAreaDeCentro(codigo), () => elegirOtroCentroCosto(codigo)));
-    });
+    if (!coincidencias.length) lista.innerHTML = '<div class="sin-resultados">No hay centros de costo que coincidan.</div>';
+    coincidencias.forEach(c => lista.appendChild(crearOpcionCargo(etiquetaCentroCosto(c), () => elegirCentroCosto(c.codigo), c.codigo === elegido ? 'actual' : '')));
     lista.style.display = 'block';
   }
 
-  function elegirOtroCentroCosto(codigo) {
-    centroCostoOtro = codigo; // si ya estaba en la lista filtrada, actualizarCentrosCosto lo deja como opción normal
-    const select = document.getElementById('centro_costo');
-    select.value = '';
-    actualizarCentrosCosto();
-    select.value = codigo;
+  function elegirCentroCosto(codigo) {
+    const c = catalogo.centrosCosto.find(x => x.codigo === codigo);
+    document.getElementById('centro_costo').value = codigo;
+    document.getElementById('centro_costo_texto').value = c ? etiquetaCentroCosto(c) : codigo;
+    document.getElementById('centro_costo_texto').setCustomValidity('');
+    document.getElementById('lista_centros_costo').style.display = 'none';
   }
 
-  function ocultarBuscadorCentroCosto() {
-    document.getElementById('centro_costo_buscar').style.display = 'none';
-    document.getElementById('lista_centros_costo').style.display = 'none';
+  // Si se escribió algo, tiene que ser un centro de costo de la lista
+  function validarCentroCosto() {
+    const texto = document.getElementById('centro_costo_texto');
+    const valido = !texto.value.trim() || !!document.getElementById('centro_costo').value;
+    texto.setCustomValidity(valido ? '' : 'Seleccione un centro de costo de la lista.');
+  }
+
+  // Muestra el número y el nombre de un centro de costo ya guardado (modo Ver)
+  function mostrarCentroCostoGuardado(codigo) {
+    const c = catalogo.centrosCosto.find(x => x.codigo === codigo);
+    document.getElementById('centro_costo').value = codigo || '';
+    document.getElementById('centro_costo_texto').value = codigo ? (c ? etiquetaCentroCosto(c) : codigo) : '';
   }
 
   // Fija el área del usuario en el formulario (bloqueada), salvo para Developer.
@@ -23385,84 +23247,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return true;
   }
 
-  // ================== JEFE INMEDIATO PARA FIRMA (según el organigrama) ==================
-  const OPCION_OTRO_JEFE = '__otro_jefe__';
-  const CARGO_DIRECTOR_OPERACIONES = 'DIRECTOR DE OPERACIONES';
-  const PREFIJOS_JEFES = ['GERENTE', 'JEFE', 'COORDINADOR', 'LIDER', 'SUPERVISOR'];
-  let modoOtroJefe = false;
-  let claveJefe = null; // área + cargo con los que se calculó el jefe (para saber cuándo reiniciar)
-
-  const nombreCargoPorId = (id) => catalogo.cargos.find(c => c.id === id)?.nombre || null;
-
-  // Jefe sugerido: el del organigrama para el área y cargo elegidos
-  function jefeSugerido() {
-    const area = areaSeleccionada();
-    const cargo = modoCargoLibre ? null : cargoElegido();
-    if (!area || !cargo) return null;
-    const fila = catalogo.organigrama.find(o => o.area_id === area.id && o.cargo_id === cargo.id);
-    return fila ? nombreCargoPorId(fila.jefe_cargo_id) : null;
-  }
-
-  // Posibles jefes: supervisores, líderes, coordinadores, jefes y gerentes del área, más el Director de Operaciones
-  function posiblesJefes() {
-    const area = areaSeleccionada();
-    if (!area) return [];
-    const nombres = catalogo.organigrama
-      .filter(o => o.area_id === area.id)
-      .map(o => nombreCargoPorId(o.cargo_id))
-      .filter(n => n && PREFIJOS_JEFES.includes(n.split(' ')[0]));
-    const lista = [...new Set(nombres)].sort((x, y) => x.localeCompare(y, 'es'));
-    lista.push(CARGO_DIRECTOR_OPERACIONES);
-    return lista;
-  }
-
-  function actualizarJefeInmediato() {
-    const select = document.getElementById('jefe_inmediato');
-    const area = areaSeleccionada();
-    const cargo = modoCargoLibre ? null : cargoElegido();
-    const clave = (area ? area.id : '') + '|' + (modoCargoLibre ? 'libre' : (cargo ? cargo.id : ''));
-    let anterior = select.value;
-    if (clave !== claveJefe) { modoOtroJefe = false; claveJefe = clave; anterior = ''; }
-
-    const sugerido = jefeSugerido();
-    const hayCargo = modoCargoLibre || !!cargo;
-    select.innerHTML = '';
-
-    if (!hayCargo) {
-      select.appendChild(new Option('Seleccione primero el cargo...', ''));
-      select.options[0].disabled = true;
-      select.value = '';
-      return;
-    }
-
-    if (sugerido && !modoOtroJefe) {
-      select.appendChild(new Option('Seleccione el jefe inmediato...', ''));
-      select.appendChild(new Option(sugerido + ' (sugerido)', sugerido));
-      select.appendChild(new Option('➕ Elegir otro jefe', OPCION_OTRO_JEFE));
-      select.value = sugerido;
-      return;
-    }
-
-    // Lista completa: "Elegir otro jefe", cargo no existente, o cargo sin jefe en el organigrama
-    select.appendChild(new Option('Seleccione el jefe inmediato...', ''));
-    posiblesJefes().forEach(n => select.appendChild(new Option(n === sugerido ? n + ' (sugerido)' : n, n)));
-    select.value = [...select.options].some(o => o.value === anterior) ? anterior : '';
-  }
-
-  function alCambiarJefeInmediato() {
-    const select = document.getElementById('jefe_inmediato');
-    if (select.value === OPCION_OTRO_JEFE) {
-      modoOtroJefe = true;
-      select.value = '';
-      actualizarJefeInmediato();
-      select.focus();
-    }
-  }
-
   // Al cambiar de área (o limpiar el formulario) se reinician el cargo y el centro de costo
   function reiniciarCargoYCentroCosto() {
     modoCargoLibre = false;
-    centroCostoOtro = null;
     const input = document.getElementById('nombre_cargo');
     input.value = '';
     input.setCustomValidity('');

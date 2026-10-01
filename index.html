@@ -8961,7 +8961,10 @@ var supabase = function(e) {
     .pill-pendiente_firmas, .pill-pendiente_dg { background: #FEF3C7; color: #92400E; }
     .pill-aprobada { background: #DCFCE7; color: #15803D; }
     .pill-rechazada { background: #F1F5F9; color: #64748B; }
-    .pill-cancelada { background: #FDE2E1; color: #B3402F; }
+    .pill-cancelada, .pill-declinada { background: #FDE2E1; color: #B3402F; }
+    .pill-en_proceso_firmas { background: #FEF3C7; color: #92400E; }
+    .pill-enviada_th { background: #DBEAFE; color: #1E40AF; }
+    .pill-vacante_cubierta { background: #DCFCE7; color: #166534; }
     .contador-pendientes { display: inline-block; min-width: 20px; padding: 1px 7px; border-radius: 999px; background: #B3402F; color: #fff; font-size: 12px; font-weight: 700; text-align: center; margin-left: 6px; vertical-align: middle; }
     .contador-pendientes.vacio { background: #CBD5E1; color: #475569; }
     .tarjeta-pendiente { background: #F8FAFC; border: 1px solid #DCE3EA; border-left: 5px solid #1CA7A0; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
@@ -8987,11 +8990,6 @@ var supabase = function(e) {
     .progreso-firmas .fecha-paso { font-size: 10px; color: #64748b; margin-top: 2px; }
     .detalle-paso { background: #fff; border: 1px solid #DCE3EA; border-radius: 8px; padding: 10px 12px; font-size: 13px; color: #334155; margin: 8px 0 4px; }
     .detalle-paso .titulo-detalle { font-weight: 700; margin-bottom: 4px; }
-    #btnVistaFirmas .contador-pendientes, #btnVistaMias .contador-pendientes { margin-left: 4px; }
-    .con-punto { position: relative; }
-    .con-punto::after { content: ''; position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; border-radius: 50%; background: #DC2626; border: 2px solid #fff; }
-    .aviso-sin-pdf { background: #FDE2E1; border: 1px solid #F2B8B5; border-left: 5px solid #B3402F; color: #7A2419; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; }
-    .aviso-sin-pdf a { color: #7A2419; font-weight: 700; }
     /* Seguimiento compacto */
     .filtros-seg { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
     .filtros-seg select, .filtros-seg input { width: auto; flex: 1 1 200px; padding: 6px 10px; font-size: 13px; border: 1px solid #B7C2CE; border-radius: 4px; }
@@ -9087,7 +9085,7 @@ var supabase = function(e) {
       <div class="inicio-boton" onclick="mostrarSeccionVerRequisiciones(true)">
         <div class="icono">📋</div>
         <div class="texto">
-          <div class="titulo">Gestión de requisiciones <span id="contadorPendientes" class="contador-pendientes vacio" title="Firmas pendientes">0</span></div>
+          <div class="titulo">Gestión de requisiciones</div>
           <div class="desc" id="descVerRequisiciones">Consulta el estado de las requisiciones de tu área</div>
         </div>
       </div>
@@ -9127,20 +9125,11 @@ var supabase = function(e) {
 
     <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
       <button id="btnVistaArea" class="acento" onclick="cambiarVistaRequisiciones('area')">Requisiciones del área</button>
-      <button id="btnVistaMias" class="secundario" onclick="cambiarVistaRequisiciones('mias')">Mis requisiciones <span id="contadorSinPdf" class="contador-pendientes hidden" title="Requisiciones sin PDF subido">0</span></button>
-      <button id="btnVistaFirmas" class="secundario" onclick="cambiarVistaRequisiciones('firmas')">Firmas pendientes <span id="contadorPendientesTab" class="contador-pendientes vacio">0</span></button>
+      <button id="btnVistaMias" class="secundario" onclick="cambiarVistaRequisiciones('mias')">Mis requisiciones</button>
       <button id="btnVistaEstadisticas" class="secundario" onclick="cambiarVistaRequisiciones('estadisticas')">Seguimiento y estadísticas</button>
     </div>
 
     <div id="listaRequisiciones"><div class="cargando">Cargando requisiciones...</div></div>
-
-    <!-- Firmas pendientes: solo lo que espera mi firma -->
-    <div id="vistaFirmas" class="hidden">
-      <p style="color:#64748b; font-size:13px; margin:0 0 12px;">
-        Descarga el PDF, fírmalo en Adobe Acrobat con tu ID digital (sin hacer otros cambios), guárdalo y súbelo aquí. La app verifica que sea el mismo documento, que tenga tu firma y que el certificado esté a tu nombre.
-      </p>
-      <div id="listaFirmasPendientes"></div>
-    </div>
 
     <!-- Estadísticas -->
     <div id="vistaEstadisticas" class="hidden">
@@ -9149,31 +9138,30 @@ var supabase = function(e) {
       </div>
       <div id="contenidoEstadisticas"></div>
     </div>
-    <!-- Ventana para rechazar -->
-    <div id="modalRechazar" class="fondo-modal hidden">
+    <!-- Ventana para subir el PDF con todas las firmas -->
+    <div id="modalSubirFirmado" class="fondo-modal hidden">
       <div class="caja-modal">
-        <div class="section-title" style="margin-top:0;">Rechazar requisición <span id="modalRechazarNumero"></span></div>
-        <p style="font-size:13px; color:#64748b; margin:0 0 8px;">La requisición quedará rechazada y, para continuar, habrá que crear una nueva con otro número.</p>
-        <label for="motivoRechazo" style="display:block; font-size:14px; margin-bottom:6px;">Motivo del rechazo (obligatorio):</label>
-        <textarea id="motivoRechazo"></textarea>
-        <div id="modalRechazarMensaje" style="font-size:13px; margin-top:8px; color:#b91c1c;"></div>
+        <div class="section-title" style="margin-top:0;">Subir PDF firmado <span id="modalSubirNumero"></span></div>
+        <p style="font-size:13px; color:#64748b; margin:0 0 10px;">Sube el PDF con todas las firmas necesarias. La requisición pasará a "Enviada a Talento Humano".</p>
+        <input type="file" id="archivoFirmado" accept="application/pdf,.pdf">
+        <div id="modalSubirMensaje" style="font-size:13px; margin-top:8px; color:#b91c1c;"></div>
         <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
-          <button class="secundario" onclick="cerrarModalRechazar()">Volver</button>
-          <button id="btnConfirmarRechazo" class="peligro" style="padding:8px 14px; font-size:14px;" onclick="confirmarRechazo()">Rechazar requisición</button>
+          <button class="secundario" onclick="cerrarModalSubirFirmado()">Volver</button>
+          <button id="btnConfirmarSubida" class="acento" style="padding:8px 14px; font-size:14px;" onclick="confirmarSubidaFirmado()">Enviar a Talento Humano</button>
         </div>
       </div>
     </div>
 
-    <!-- Ventana para cancelar una requisición -->
+    <!-- Ventana para declinar una requisición -->
     <div id="modalCancelar" class="fondo-modal hidden">
       <div class="caja-modal">
-        <div class="section-title" style="margin-top:0;">Cancelar requisición <span id="modalCancelarNumero"></span></div>
-        <label for="motivoCancelacion" style="display:block; font-size:14px; margin-bottom:6px;">Motivo de la cancelación (obligatorio):</label>
+        <div class="section-title" style="margin-top:0;">Declinar requisición <span id="modalCancelarNumero"></span></div>
+        <label for="motivoCancelacion" style="display:block; font-size:14px; margin-bottom:6px;">Motivo (obligatorio):</label>
         <textarea id="motivoCancelacion"></textarea>
         <div id="modalCancelarMensaje" style="font-size:13px; margin-top:8px; color:#b91c1c;"></div>
         <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
           <button class="secundario" onclick="cerrarModalCancelar()">Volver</button>
-          <button id="btnConfirmarCancelar" class="peligro" style="padding:8px 14px; font-size:14px;" onclick="confirmarCancelacion()">Cancelar requisición</button>
+          <button id="btnConfirmarCancelar" class="peligro" style="padding:8px 14px; font-size:14px;" onclick="confirmarCancelacion()">Declinar requisición</button>
         </div>
       </div>
     </div>
@@ -9267,7 +9255,7 @@ var supabase = function(e) {
 
     <h2 style="font-size:17px; margin:18px 0 4px; color:#10243E;">Cargos del área</h2>
     <p style="color:#64748b; font-size:13px; margin:0 0 10px;">
-      Ordenados por nivel jerárquico. El jefe inmediato es el que se sugiere para firma en el formulario. Los cambios se guardan al instante.
+      Ordenados por nivel jerárquico. Los cambios se guardan al instante.
     </p>
     <div id="tablaOrganigrama"><div class="cargando">Cargando organigrama...</div></div>
 
@@ -9491,10 +9479,7 @@ var supabase = function(e) {
     }
 
     // Al entrar desde el inicio: si hay firmas pendientes, se abre ese apartado primero
-    if (desdeInicio) {
-      await cargarDatosSeguimiento();
-      vistaRequisiciones = datosSeguimiento.some(r => r.me_toca_firmar) ? 'firmas' : 'area';
-    }
+    if (desdeInicio) vistaRequisiciones = 'area';
     cambiarVistaRequisiciones(vistaRequisiciones);
   }
 
@@ -9801,12 +9786,10 @@ var supabase = function(e) {
   // ================== VER REQUISICIONES ==================
 
   const ETIQUETAS_ESTADO = {
-    generada: 'Generada',
-    pendiente_firmas: 'Pendiente de firmas',
-    pendiente_dg: 'Pendiente Dirección General',
-    aprobada: 'Aprobada',
-    rechazada: 'Rechazada',
-    cancelada: 'Cancelada'
+    en_proceso_firmas: 'En proceso de firmas',
+    enviada_th: 'Enviada a Talento Humano',
+    vacante_cubierta: 'Vacante cubierta',
+    declinada: 'Declinada'
   };
 
   async function cargarRequisiciones() {
@@ -9817,7 +9800,7 @@ var supabase = function(e) {
     // Este select trae, además, el área de quien creó cada requisición para mostrarla y, si aplica, filtrarla.
     let consulta = sb
       .from('requisiciones')
-      .select('id, numero_consecutivo, anio, estado, tipo_requisicion, nombre_solicitante, creado_en, creado_por, datos_formulario, usuarios(area_id, areas(nombre))')
+      .select('id, numero_consecutivo, anio, estado, tipo_requisicion, nombre_solicitante, creado_en, creado_por, datos_formulario, pdf_actual_path, usuarios(area_id, areas(nombre))')
       .order('creado_en', { ascending: false });
 
     const { data, error } = await consulta;
@@ -9856,25 +9839,16 @@ var supabase = function(e) {
         <td><span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span></td>
         <td>${formatearFecha(r.creado_en)}</td>
         <td style="white-space:nowrap;">
-          <button class="secundario ${r.estado === 'generada' && r.creado_por === usuarioActual?.id ? 'con-punto' : ''}" style="padding:4px 12px; font-size:12px;" onclick="verRequisicion('${escaparHtml(String(r.id))}')" ${r.estado === 'generada' && r.creado_por === usuarioActual?.id ? 'title="Falta subir el PDF para iniciar las firmas"' : ''}>Ver</button>
-          ${puedeCancelar(r) ? `<button class="peligro" style="margin-left:6px;" onclick="abrirModalCancelar('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">Cancelar</button>` : ''}
+          <button class="secundario" style="padding:4px 12px; font-size:12px;" onclick="verRequisicion('${escaparHtml(String(r.id))}')">Ver</button>
+          ${r.estado === 'en_proceso_firmas' && (r.creado_por === usuarioActual?.id || puedeGestionarRoles) ? `<button class="acento" style="margin-left:6px; padding:4px 10px; font-size:12px;" onclick="abrirModalSubirFirmado('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">Subir firmado</button>` : ''}
+          ${r.pdf_actual_path ? `<button class="secundario" style="margin-left:6px; padding:4px 10px; font-size:12px;" onclick="descargarPdfFirmas('${escaparHtml(String(r.id))}')" title="Descargar PDF firmado">⬇️ PDF</button>` : ''}
+          ${r.estado === 'enviada_th' && puedeGestionarRoles ? `<button class="secundario" style="margin-left:6px; padding:4px 10px; font-size:12px;" onclick="marcarVacanteCubierta('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">✔ Vacante cubierta</button>` : ''}
+          ${puedeCancelar(r) ? `<button class="peligro" style="margin-left:6px;" onclick="abrirModalCancelar('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">Declinar</button>` : ''}
         </td>
       </tr>
     `).join('');
 
-    // En "Mis requisiciones": aviso de las que quedaron sin subir el PDF
-    let aviso = '';
-    const sinPdf = vistaRequisiciones === 'mias' ? filas.filter(r => r.estado === 'generada' && r.creado_por === usuarioActual?.id) : [];
-    if (sinPdf.length) {
-      const enlace = (r) => `<a href="#" onclick="verRequisicion('${escaparHtml(String(r.id))}'); return false;">#${r.numero_consecutivo}-${r.anio}</a> (${escaparHtml(r.datos_formulario?.nombre_cargo || '')})`;
-      aviso = sinPdf.length === 1
-        ? `<div class="aviso-sin-pdf">⚠️ Quedó pendiente subir el PDF de la requisición ${enlace(sinPdf[0])}. Sin ese archivo no inicia el proceso de firmas. Entra a <strong>Ver</strong> para subirlo.</div>`
-        : `<div class="aviso-sin-pdf">⚠️ Quedó pendiente subir el PDF de estas ${sinPdf.length} requisiciones. Sin esos archivos no inicia el proceso de firmas. Entra a <strong>Ver</strong> en cada una para subirlo:
-             <ul style="margin:6px 0 0; padding-left:22px;">${sinPdf.map(r => `<li>${enlace(r)}</li>`).join('')}</ul>
-           </div>`;
-    }
-
-    cont.innerHTML = aviso + `
+    cont.innerHTML = `
       <table class="tabla-requisiciones">
         <thead>
           <tr>
@@ -9893,7 +9867,8 @@ var supabase = function(e) {
     `;
   }
 
-  // ================== FIRMAS: PENDIENTES POR FIRMAR ==================
+  // ================== SEGUIMIENTO (la app ya no rastrea las firmas) ==================
+  // Estados: En proceso de firmas → Enviada a Talento Humano → Vacante cubierta (o Declinada)
   async function llamarFuncionFirmas(formData) {
     const { data: { session } } = await sb.auth.getSession();
     const resp = await fetchConReintento(SUPABASE_URL + '/functions/v1/firmas', {
@@ -9907,26 +9882,13 @@ var supabase = function(e) {
     return cuerpo;
   }
 
-  async function actualizarContadorPendientes() { await cargarDatosSeguimiento(); }
-
   let datosSeguimiento = [];
-
-  // Trae las requisiciones del seguimiento (las que la persona puede seguir) y actualiza contadores
   async function cargarDatosSeguimiento() {
     const { data, error } = await sb.rpc('seguimiento_requisiciones');
     datosSeguimiento = error ? [] : (data || []);
-    const n = datosSeguimiento.filter(r => r.me_toca_firmar).length;
-    const sinPdf = datosSeguimiento.filter(r => r.es_mia && r.estado === 'generada').length;
-    const elSinPdf = document.getElementById('contadorSinPdf');
-    elSinPdf.textContent = sinPdf;
-    elSinPdf.classList.toggle('hidden', sinPdf === 0);
-    ['contadorPendientes', 'contadorPendientesTab'].forEach(id => {
-      const el = document.getElementById(id);
-      el.textContent = n;
-      el.classList.toggle('vacio', n === 0);
-    });
     if (error) console.error(error);
   }
+  async function actualizarContadorPendientes() { /* ya no hay firmas pendientes que contar */ }
 
   // Aplica el filtro de Área de arriba (solo visible para quien ve todas las áreas)
   function seguimientoDelAreaFiltrada() {
@@ -9939,60 +9901,37 @@ var supabase = function(e) {
   async function recargarSeguimiento() { await refrescarVistaRequisiciones(); }
 
   const fechaHora = (iso) => iso ? new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-  const NOMBRE_CORTO_PASO = {
-    jefe_inmediato: 'Jefe inmediato', director_operaciones: 'Director de Operaciones',
-    gerente_th: 'Gerente de Talento Humano', director_general: 'Director General'
+  const duracion = (desde, hasta) => {
+    const d = (new Date(hasta || Date.now()) - new Date(desde)) / 86400000;
+    return d < 1 ? `${Math.max(1, Math.round(d * 24))} h` : `${d.toFixed(1).replace('.', ',')} días`;
   };
 
-  // Arma las fases de la barra: Generada → firmas → Aprobada
+  // Fases de la barra: En proceso de firmas → Enviada a Talento Humano → Vacante cubierta
   function fasesDeRequisicion(r) {
-    const fases = [{
-      titulo: 'Generada', estado: 'ok', fecha: r.creado_en,
-      detalle: [`Creada por ${r.nombre_solicitante || '—'}`, fechaHora(r.creado_en)]
-    }];
+    const declinada = r.estado === 'declinada';
+    const enviada = !!r.enviada_th_en;
+    const cubierta = r.estado === 'vacante_cubierta';
+    const detalleDeclinada = [`Declinada${r.cancelado_por_nombre ? ' por ' + r.cancelado_por_nombre : ''}`, fechaHora(r.cancelado_en), `Motivo: ${r.motivo_cancelacion || '—'}`];
 
-    let firmas = r.firmas || [];
-    if (!firmas.length) { // todavía no se subió el PDF original: se muestran los pasos esperados
-      firmas = [
-        { tipo: 'jefe_inmediato', etiqueta: `Jefe inmediato (${r.jefe_inmediato_cargo || 'sin definir'})`, estado: 'pendiente' },
-        { tipo: 'director_operaciones', etiqueta: 'Director de Operaciones', estado: 'pendiente' }
-      ];
-      if (r.es_caso_especifico) firmas.push({ tipo: 'director_general', etiqueta: 'Director General', estado: 'pendiente' });
+    const f1 = { titulo: 'En proceso de firmas', fecha: r.creado_en,
+      detalle: ['', `Generada por ${r.nombre_solicitante || '—'}`, fechaHora(r.creado_en),
+        enviada ? `Tiempo en firmas: ${duracion(r.creado_en, r.enviada_th_en)}` : (declinada ? '' : `Lleva ${duracion(r.creado_en)} en firmas`)] };
+    const f2 = { titulo: 'Enviada a Talento Humano', fecha: r.enviada_th_en,
+      detalle: ['', enviada ? `Enviada${r.enviada_th_por_nombre ? ' por ' + r.enviada_th_por_nombre : ''}` : 'Pendiente: se sube el PDF con todas las firmas.', fechaHora(r.enviada_th_en),
+        enviada && !cubierta && !declinada ? `Lleva ${duracion(r.enviada_th_en)} en Talento Humano` : ''] };
+    const f3 = { titulo: 'Vacante cubierta', fecha: r.vacante_cubierta_en,
+      detalle: ['', cubierta ? `Marcada${r.vacante_cubierta_por_nombre ? ' por ' + r.vacante_cubierta_por_nombre : ''}` : 'Pendiente: la marca el Developer.', fechaHora(r.vacante_cubierta_en),
+        cubierta ? `Tiempo en Talento Humano: ${duracion(r.enviada_th_en, r.vacante_cubierta_en)} · Total: ${duracion(r.creado_en, r.vacante_cubierta_en)}` : ''] };
+
+    if (cubierta) { f1.estado = f2.estado = f3.estado = 'ok'; }
+    else if (r.estado === 'enviada_th') { f1.estado = f2.estado = 'ok'; f3.estado = 'pendiente'; f3.actual = true; }
+    else if (r.estado === 'en_proceso_firmas') { f1.estado = 'pendiente'; f1.actual = true; f2.estado = f3.estado = 'pendiente'; }
+    else if (declinada) {
+      // Se marca en rojo la fase en la que iba cuando se declinó
+      if (enviada) { f1.estado = 'ok'; f2.estado = 'ok'; f3.estado = 'rechazada'; f3.fecha = r.cancelado_en; f3.titulo = 'Declinada'; f3.detalle = [''].concat(detalleDeclinada); }
+      else { f1.estado = 'rechazada'; f1.detalle = f1.detalle.slice(0, 3).concat(detalleDeclinada); f2.estado = f3.estado = 'inactiva'; }
     }
-
-    let terminado = false; // después de un rechazo o una cancelación, lo que sigue queda inactivo
-    firmas.forEach((f, i) => {
-      const fase = { titulo: NOMBRE_CORTO_PASO[f.tipo] || f.etiqueta, fecha: f.firmado_en, detalle: [f.etiqueta] };
-      if (f.estado === 'firmada') {
-        fase.estado = 'ok';
-        fase.detalle = [f.etiqueta, `Firmó: ${f.firmado_por_nombre || '—'}`, f.nombre_certificado ? `Certificado: ${f.nombre_certificado}` : '', fechaHora(f.firmado_en)];
-      } else if (f.estado === 'rechazada') {
-        fase.estado = 'rechazada';
-        fase.detalle = [f.etiqueta, `Rechazó: ${f.firmado_por_nombre || '—'}`, fechaHora(f.firmado_en), `Motivo: ${f.motivo_rechazo || '—'}`];
-        terminado = true;
-      } else if (terminado) {
-        fase.estado = 'inactiva';
-        fase.detalle = [f.etiqueta, 'No aplica: el proceso terminó antes de este paso.'];
-      } else if (r.estado === 'cancelada') {
-        fase.estado = 'rechazada';
-        fase.fecha = r.cancelado_en;
-        fase.detalle = [f.etiqueta, `Requisición cancelada${r.cancelado_por_nombre ? ' por ' + r.cancelado_por_nombre : ''}`, fechaHora(r.cancelado_en), `Motivo: ${r.motivo_cancelacion || '—'}`];
-        terminado = true;
-      } else {
-        fase.estado = 'pendiente';
-        const esActual = r.estado === 'pendiente_firmas' ? f.paso === r.paso_actual : (r.estado === 'generada' && i === 0);
-        fase.actual = esActual;
-        fase.detalle = [f.etiqueta, r.estado === 'generada' && i === 0
-          ? 'Falta subir el PDF original para iniciar las firmas.'
-          : (esActual ? 'Esperando esta firma.' : 'Pendiente.')];
-      }
-      fases.push(fase);
-    });
-
-    fases.push(r.estado === 'aprobada'
-      ? { titulo: 'Aprobada', estado: 'ok', fecha: r.aprobada_en, detalle: ['Requisición aprobada con todas las firmas. Se envía a Talento Humano por fuera de la app.', fechaHora(r.aprobada_en)] }
-      : { titulo: 'Aprobada', estado: terminado ? 'inactiva' : 'pendiente', detalle: [terminado ? 'El proceso terminó sin aprobarse.' : 'Se aprueba cuando estén todas las firmas.'] });
-    return fases;
+    return [f1, f2, f3];
   }
 
   const seguimientoPorClave = {};
@@ -10012,60 +9951,21 @@ var supabase = function(e) {
 
   function mostrarDetalleFase(idx, i, boton) {
     const caja = document.getElementById('detalle-fase-' + idx);
-    const tarjeta = boton.closest('.tarjeta-pendiente, .fila-seg');
+    const contenedor = boton.closest('.fila-seg');
     const yaAbierta = boton.classList.contains('seleccionada');
-    tarjeta.querySelectorAll('.bolita.seleccionada').forEach(b => b.classList.remove('seleccionada'));
+    contenedor.querySelectorAll('.bolita.seleccionada').forEach(b => b.classList.remove('seleccionada'));
     if (yaAbierta) { caja.innerHTML = ''; return; }
     boton.classList.add('seleccionada');
     const f = fasesDeRequisicion(seguimientoPorClave[idx])[i];
-    const lineas = f.detalle.filter(Boolean);
-    caja.innerHTML = `<div class="detalle-paso"><div class="titulo-detalle">${escaparHtml(f.titulo)}</div>${lineas.slice(1).map(l => `<div>${escaparHtml(l)}</div>`).join('') || `<div>${escaparHtml(lineas[0] || '')}</div>`}</div>`;
+    caja.innerHTML = `<div class="detalle-paso"><div class="titulo-detalle">${escaparHtml(f.titulo)}</div>${f.detalle.filter(Boolean).map(l => `<div>${escaparHtml(l)}</div>`).join('')}</div>`;
   }
 
-  // Tarjeta completa (se usa en Firmas pendientes)
-  function tarjetaFirmaHtml(r) {
-    const id = escaparHtml(String(r.id));
-    const numero = `#${r.numero_consecutivo}-${r.anio}`;
-    const etiqueta = (r.firmas.find(f => f.paso === r.paso_actual) || {}).etiqueta || '';
-    return `
-      <div class="tarjeta-pendiente me-toca">
-        <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
-          <div class="titulo-pend">${numero} · ${escaparHtml(r.nombre_cargo || '')}</div>
-          <span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span>
-        </div>
-        <div class="detalle-pend">${escaparHtml(r.area || '')} · ${escaparHtml(r.tipo_requisicion || '')} · Solicitada por ${escaparHtml(r.nombre_solicitante || '')}</div>
-        ${barraDeProgresoHtml(r, 'f' + r.id)}
-        <div style="font-size:14px; margin-top:6px;">Te toca firmar como: <strong>${escaparHtml(etiqueta)}</strong></div>
-        <div class="acciones-pend">
-          <button class="secundario" onclick="descargarPdfFirmas('${id}')">⬇️ Descargar PDF</button>
-          <button class="secundario" onclick="verRequisicion('${id}')">Ver requisición</button>
-          <input type="file" id="archivo-firma-${id}" accept="application/pdf,.pdf">
-          <button class="acento" onclick="subirPdfFirmado('${id}', this)">📤 Subir firmado</button>
-          <button class="peligro" style="padding:7px 12px; font-size:13px;" onclick="abrirModalRechazar('${id}', '${numero}')">Rechazar</button>
-        </div>
-        <div id="msg-firma-${id}" style="font-size:13px; margin-top:8px;"></div>
-      </div>`;
-  }
-
-  function dibujarFirmasPendientes() {
-    const cont = document.getElementById('listaFirmasPendientes');
-    const lista = datosSeguimiento.filter(r => r.me_toca_firmar);
-    cont.innerHTML = lista.length ? lista.map(tarjetaFirmaHtml).join('') : '<p class="sin-roles">No tienes firmas pendientes. 🎉</p>';
-  }
-
-  // Fase en la que va una requisición en proceso
-  function faseActual(r) {
-    if (r.estado === 'generada') return 'original';
-    if (r.estado !== 'pendiente_firmas') return null;
-    return (r.firmas.find(f => f.paso === r.paso_actual) || {}).tipo || null;
-  }
-
-  // Fila compacta con mini barra (Seguimiento y listas de Estadísticas)
+  // Fila compacta con mini barra (Seguimiento y estadísticas)
   function filaSeguimientoHtml(r, prefijo) {
     const clave = prefijo + r.id;
     const fases = fasesDeRequisicion(r);
     const mini = fases.map((f, i) => (i ? `<span class="ml ${fases[i - 1].estado === 'ok' && f.estado !== 'inactiva' ? 'ok' : ''}"></span>` : '') +
-      `<span class="mb ${f.estado} ${f.actual ? 'actual' : ''}" title="${escaparHtml(f.titulo + ': ' + f.detalle.filter(Boolean).slice(1).join(' · '))}"></span>`).join('');
+      `<span class="mb ${f.estado} ${f.actual ? 'actual' : ''}" title="${escaparHtml(f.titulo + ': ' + f.detalle.filter(Boolean).join(' · '))}"></span>`).join('');
     return `
       <div class="fila-seg" id="fila-${clave}">
         <div class="cabeza" onclick="alternarFilaSeguimiento('${clave}')">
@@ -10081,43 +9981,39 @@ var supabase = function(e) {
   function alternarFilaSeguimiento(clave) {
     const cuerpo = document.getElementById('cuerpo-' + clave);
     if (!cuerpo.classList.contains('hidden')) { cuerpo.classList.add('hidden'); cuerpo.innerHTML = ''; return; }
-    const idReq = clave.slice(1);
-    const r = datosSeguimiento.find(x => String(x.id) === idReq);
+    const r = datosSeguimiento.find(x => String(x.id) === clave.slice(1));
     if (!r) return;
     const id = escaparHtml(String(r.id));
-    let extra = '';
-    if (r.me_toca_firmar) extra = `<div style="font-size:13px; margin-top:6px;">⚠️ Esta requisición espera tu firma. Fírmala desde <a href="#" onclick="cambiarVistaRequisiciones('firmas'); return false;">Firmas pendientes</a>.</div>`;
-    else if (r.estado === 'generada' && r.es_mia) extra = `
-      <div style="font-size:13px; margin-top:6px;">Sube el PDF original (el que guardaste al imprimir) para iniciar las firmas:</div>
-      <div class="acciones-pend">
-        <input type="file" id="archivo-firma-${id}" accept="application/pdf,.pdf">
-        <button class="acento" onclick="subirPdfOriginalSeguimiento('${id}', this)">📎 Subir PDF e iniciar firmas</button>
-      </div>`;
     cuerpo.innerHTML = `
       <div class="detalle-pend" style="margin-top:8px;">Solicitada por ${escaparHtml(r.nombre_solicitante || '')} el ${formatearFecha(r.creado_en)}</div>
       ${barraDeProgresoHtml(r, clave)}
       <div class="acciones-pend">
-        ${r.tiene_pdf ? `<button class="secundario" onclick="descargarPdfFirmas('${id}')">⬇️ Descargar PDF</button>` : ''}
+        ${r.tiene_pdf ? `<button class="secundario" onclick="descargarPdfFirmas('${id}')">⬇️ Descargar PDF firmado</button>` : ''}
         <button class="secundario" onclick="verRequisicion('${id}')">Ver requisición</button>
-      </div>
-      ${extra}
-      <div id="msg-firma-${id}" style="font-size:13px; margin-top:8px;"></div>`;
+      </div>`;
     cuerpo.classList.remove('hidden');
   }
 
   const normalizarTexto = (t) => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
 
   // ================== ESTADÍSTICAS ==================
-  const COLOR_ESTADO = { generada: '#2563EB', pendiente_firmas: '#D97706', aprobada: '#16A34A', rechazada: '#64748B', cancelada: '#DC2626' };
-  const NOMBRE_FASE = {
-    original: 'Falta subir PDF original', jefe_inmediato: 'Esperando Jefe inmediato', director_operaciones: 'Esperando Director de Operaciones',
-    gerente_th: 'Esperando Gerente de Talento Humano', director_general: 'Esperando Director General'
-  };
+  const COLOR_ESTADO = { en_proceso_firmas: '#D97706', enviada_th: '#2563EB', vacante_cubierta: '#16A34A', declinada: '#DC2626' };
+  const ORDEN_ESTADO = ['en_proceso_firmas', 'enviada_th', 'vacante_cubierta', 'declinada'];
+  const RANGOS_ANTIGUEDAD = [
+    { clave: 'menos7', etiqueta: 'Menos de 7 días', desde: 0, hasta: 7 },
+    { clave: '7a15', etiqueta: 'De 7 a 15 días', desde: 7, hasta: 15 },
+    { clave: '15a30', etiqueta: 'De 15 a 30 días', desde: 15, hasta: 30 },
+    { clave: 'mas30', etiqueta: 'Más de 30 días', desde: 30, hasta: Infinity }
+  ];
   let filtroEstadistica = null; // { tipo, valor, titulo }
 
   const pct = (n, total) => total ? Math.round((n / total) * 100) : 0;
   const dias = (ms) => (ms / 86400000);
   const formatoDias = (d) => d < 1 ? `${Math.round(d * 24)} h` : `${d.toFixed(1).replace('.', ',')} días`;
+  const enCurso = (r) => r.estado === 'en_proceso_firmas' || r.estado === 'enviada_th';
+  // Días que lleva en su estado actual (solo para las que siguen en curso)
+  const diasEnEstadoActual = (r) => dias(Date.now() - new Date(r.estado === 'enviada_th' ? r.enviada_th_en : r.creado_en));
+  const rangoAntiguedad = (r) => RANGOS_ANTIGUEDAD.find(g => { const d = diasEnEstadoActual(r); return d >= g.desde && d < g.hasta; })?.clave;
 
   function graficaBarrasHtml(titulo, items, total, tipo) {
     const max = Math.max(1, ...items.map(i => i.valor));
@@ -10139,19 +10035,24 @@ var supabase = function(e) {
     return Object.entries(conteo).sort((a, b) => b[1] - a[1]);
   }
 
-  // Estadísticas: Developer y Director ven todas las áreas (con el filtro de arriba); los demás, solo su área
+  // Developer y Director ven todas las áreas (con el filtro de arriba); los demás, solo su área
   function datosEstadisticas() {
     if (veEstadisticasDeTodo) return seguimientoDelAreaFiltrada();
     const miArea = catalogoAreas.find(a => a.id === usuarioActual?.area_id)?.nombre;
     return datosSeguimiento.filter(r => r.area === miArea);
   }
 
+  function promedio(lista, desde, hasta) {
+    const v = lista.filter(r => r[desde] && r[hasta]).map(r => new Date(r[hasta]) - new Date(r[desde]));
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  }
+
   function dibujarEstadisticas() {
     const cont = document.getElementById('contenidoEstadisticas');
     const datos = datosEstadisticas();
     const total = datos.length;
-    const enProceso = datos.filter(r => ['generada', 'pendiente_firmas'].includes(r.estado));
     const n = (e) => datos.filter(r => r.estado === e).length;
+    const enCursoLista = datos.filter(enCurso);
 
     const kpi = (valor, rotulo, color, tipo, clave) => `
       <div class="kpi" onclick="aplicarFiltroEstadistica('${tipo}', '${clave}', '${rotulo}')">
@@ -10160,33 +10061,16 @@ var supabase = function(e) {
         <div class="pct" style="color:${color};">${tipo === 'todas' ? '' : pct(valor, total) + '%'}</div>
       </div>`;
 
-    // Tiempos: generada → aprobada, y cuánto tarda cada firma desde el paso anterior
-    const aprobadas = datos.filter(r => r.estado === 'aprobada' && r.aprobada_en);
-    const promAprob = aprobadas.length ? aprobadas.reduce((s, r) => s + (new Date(r.aprobada_en) - new Date(r.creado_en)), 0) / aprobadas.length : null;
-    const tiemposPorPaso = {};
-    datos.forEach(r => {
-      let anterior = null;
-      (r.firmas || []).forEach(f => {
-        if (f.paso === 1) anterior = null;
-        if (f.estado === 'firmada' && f.firmado_en) {
-          if (anterior) (tiemposPorPaso[f.tipo] = tiemposPorPaso[f.tipo] || []).push(new Date(f.firmado_en) - new Date(anterior));
-          anterior = f.firmado_en;
-        }
-      });
-    });
-    const filasTiempo = [`<div class="tiempo-est"><span>Generada → Aprobada</span><strong>${promAprob === null ? '—' : formatoDias(dias(promAprob))}</strong></div>`]
-      .concat(['director_operaciones', 'director_general'].map(t => {
-        const arr = tiemposPorPaso[t] || [];
-        const prom = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
-        return `<div class="tiempo-est"><span>Firma ${escaparHtml(NOMBRE_CORTO_PASO[t])}</span><strong>${prom === null ? '—' : formatoDias(dias(prom))}</strong></div>`;
-      })).join('');
-
-    const detenidas = contarPor(enProceso, faseActual).map(([k, v]) => ({ clave: k, etiqueta: NOMBRE_FASE[k] || k, valor: v, color: '#2563EB' }));
+    // Tiempos promedio (de las que ya pasaron por cada etapa)
+    const tFirmas = promedio(datos, 'creado_en', 'enviada_th_en');
+    const tTH = promedio(datos, 'enviada_th_en', 'vacante_cubierta_en');
+    const tTotal = promedio(datos, 'creado_en', 'vacante_cubierta_en');
+    const filaT = (rotulo, v) => `<div class="tiempo-est"><span>${rotulo}</span><strong>${v === null ? '—' : formatoDias(dias(v))}</strong></div>`;
+    const filasTiempo = filaT('En proceso de firmas', tFirmas) + filaT('En Talento Humano', tTH) + filaT('Total (de generada a vacante cubierta)', tTotal);
 
     let lista = '';
     const busqueda = normalizarTexto(document.getElementById('buscarEstadisticas').value);
     if (busqueda) {
-      // La búsqueda tiene prioridad sobre el filtro de las gráficas
       const encontradas = datos.filter(r => normalizarTexto(`#${r.numero_consecutivo}-${r.anio} ${r.numero_consecutivo} ${r.nombre_cargo || ''}`).includes(busqueda.replace(/^#/, '')));
       lista = `
         <div style="font-weight:700; color:#10243E; margin:18px 0 8px;">Resultados de la búsqueda (${encontradas.length})</div>
@@ -10195,9 +10079,8 @@ var supabase = function(e) {
       const f = filtroEstadistica;
       const filtradas = datos.filter(r =>
         f.tipo === 'todas' ? true :
-        f.tipo === 'en_proceso' ? ['generada', 'pendiente_firmas'].includes(r.estado) :
         f.tipo === 'estado' ? r.estado === f.valor :
-        f.tipo === 'fase' ? faseActual(r) === f.valor :
+        f.tipo === 'antiguedad' ? enCurso(r) && rangoAntiguedad(r) === f.valor :
         f.tipo === 'area' ? r.area === f.valor :
         f.tipo === 'tipo' ? r.tipo_requisicion === f.valor : true);
       lista = `
@@ -10208,55 +10091,35 @@ var supabase = function(e) {
         ${filtradas.map(r => filaSeguimientoHtml(r, 'e')).join('') || '<p class="sin-roles">No hay requisiciones.</p>'}`;
     }
 
+    const porEstado = ORDEN_ESTADO.map(e => ({ clave: e, etiqueta: ETIQUETAS_ESTADO[e], valor: n(e), color: COLOR_ESTADO[e] })).filter(i => i.valor);
+    const porAntiguedad = RANGOS_ANTIGUEDAD.map(g => ({ clave: g.clave, etiqueta: g.etiqueta, valor: enCursoLista.filter(r => rangoAntiguedad(r) === g.clave).length, color: '#D97706' })).filter(i => i.valor);
+
     cont.innerHTML = `
       <p style="color:#64748b; font-size:13px; margin:0 0 12px;">${veEstadisticasDeTodo ? '' : `Indicadores del área <strong>${escaparHtml(catalogoAreas.find(a => a.id === usuarioActual?.area_id)?.nombre || '—')}</strong>. `}Haz clic en un indicador o en una barra para ver esas requisiciones con su seguimiento.</p>
       <div class="kpis">
         ${kpi(total, 'Total', '#10243E', 'todas', 'todas')}
-        ${kpi(enProceso.length, 'En proceso', '#2563EB', 'en_proceso', 'en_proceso')}
-        ${kpi(n('aprobada'), 'Aprobadas', '#16A34A', 'estado', 'aprobada')}
-        ${kpi(n('rechazada'), 'Rechazadas', '#64748B', 'estado', 'rechazada')}
-        ${kpi(n('cancelada'), 'Canceladas', '#DC2626', 'estado', 'cancelada')}
+        ${kpi(n('en_proceso_firmas'), 'En proceso de firmas', COLOR_ESTADO.en_proceso_firmas, 'estado', 'en_proceso_firmas')}
+        ${kpi(n('enviada_th'), 'Enviadas a Talento Humano', COLOR_ESTADO.enviada_th, 'estado', 'enviada_th')}
+        ${kpi(n('vacante_cubierta'), 'Vacantes cubiertas', COLOR_ESTADO.vacante_cubierta, 'estado', 'vacante_cubierta')}
+        ${kpi(n('declinada'), 'Declinadas', COLOR_ESTADO.declinada, 'estado', 'declinada')}
       </div>
       <div class="graficas">
-        ${graficaBarrasHtml('Por estado', contarPor(datos, r => r.estado).map(([k, v]) => ({ clave: k, etiqueta: ETIQUETAS_ESTADO[k] || k, valor: v, color: COLOR_ESTADO[k] })), total, 'estado')}
-        ${graficaBarrasHtml('Dónde están detenidas (en proceso)', detenidas, enProceso.length, 'fase')}
+        ${graficaBarrasHtml('Por estado', porEstado, total, 'estado')}
+        ${graficaBarrasHtml('Tiempo en su estado actual (en curso)', porAntiguedad, enCursoLista.length, 'antiguedad')}
         ${veEstadisticasDeTodo ? graficaBarrasHtml('Por área', contarPor(datos, r => r.area).map(([k, v]) => ({ clave: k, etiqueta: k, valor: v })), total, 'area') : ''}
         ${graficaBarrasHtml('Por tipo de requisición', contarPor(datos, r => r.tipo_requisicion).map(([k, v]) => ({ clave: k, etiqueta: k, valor: v, color: '#10243E' })), total, 'tipo')}
         <div class="grafica"><h3>Tiempos promedio</h3>${filasTiempo}
-          <div style="font-size:11px; color:#94a3b8; margin-top:6px;">Cada firma se mide desde la firma anterior. Solo cuenta requisiciones con fechas registradas.</div>
+          <div style="font-size:11px; color:#94a3b8; margin-top:6px;">Solo cuenta las requisiciones que ya pasaron por cada etapa.</div>
         </div>
       </div>
       ${lista}`;
   }
 
   function aplicarFiltroEstadistica(tipo, valor, titulo) {
-    filtroEstadistica = tipo ? { tipo, valor, titulo: tipo === 'fase' || tipo === 'estado' || tipo === 'area' || tipo === 'tipo' ? titulo : titulo } : null;
+    filtroEstadistica = tipo ? { tipo, valor, titulo } : null;
+    if (tipo) document.getElementById('buscarEstadisticas').value = '';
     dibujarEstadisticas();
-    if (tipo) {
-      document.getElementById('buscarEstadisticas').value = '';
-      dibujarEstadisticas();
-      document.querySelector('#contenidoEstadisticas .fila-seg, #contenidoEstadisticas .sin-roles:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }
-
-  async function subirPdfOriginalSeguimiento(idRequisicion, boton) {
-    const input = document.getElementById('archivo-firma-' + idRequisicion);
-    const msg = document.getElementById('msg-firma-' + idRequisicion);
-    if (!input.files.length) { msg.style.color = '#b91c1c'; msg.textContent = 'Selecciona el PDF que guardaste al imprimir.'; return; }
-    const fd = new FormData();
-    fd.append('accion', 'subir_original');
-    fd.append('requisicion_id', idRequisicion);
-    fd.append('archivo', input.files[0]);
-    boton.disabled = true;
-    msg.style.color = '#475569'; msg.textContent = 'Subiendo...';
-    try {
-      const r = await llamarFuncionFirmas(fd);
-      msg.style.color = '#15803d'; msg.textContent = '✅ ' + r.mensaje;
-      setTimeout(recargarSeguimiento, 2000);
-    } catch (e) {
-      msg.style.color = '#b91c1c'; msg.textContent = '⛔ ' + e.message;
-      boton.disabled = false;
-    }
+    if (tipo) document.querySelector('#contenidoEstadisticas .fila-seg, #contenidoEstadisticas .sin-roles:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function descargarPdfFirmas(idRequisicion) {
@@ -10271,58 +10134,47 @@ var supabase = function(e) {
     }
   }
 
-  async function subirPdfFirmado(idRequisicion, boton) {
-    const input = document.getElementById('archivo-firma-' + idRequisicion);
-    const msg = document.getElementById('msg-firma-' + idRequisicion);
-    if (!input.files.length) { msg.style.color = '#b91c1c'; msg.textContent = 'Selecciona el PDF que firmaste.'; return; }
+  // ---- Subir el PDF con todas las firmas → "Enviada a Talento Humano" ----
+  let requisicionASubir = null;
+  function abrirModalSubirFirmado(id, numero) {
+    requisicionASubir = id;
+    document.getElementById('modalSubirNumero').textContent = numero;
+    document.getElementById('archivoFirmado').value = '';
+    document.getElementById('modalSubirMensaje').textContent = '';
+    document.getElementById('btnConfirmarSubida').disabled = false;
+    document.getElementById('modalSubirFirmado').classList.remove('hidden');
+  }
+  function cerrarModalSubirFirmado() {
+    requisicionASubir = null;
+    document.getElementById('modalSubirFirmado').classList.add('hidden');
+  }
+  async function confirmarSubidaFirmado() {
+    const input = document.getElementById('archivoFirmado');
+    const msg = document.getElementById('modalSubirMensaje');
+    if (!input.files.length) { msg.textContent = 'Selecciona el PDF con todas las firmas.'; return; }
+    const boton = document.getElementById('btnConfirmarSubida');
+    boton.disabled = true;
+    msg.style.color = '#475569'; msg.textContent = 'Subiendo...';
     const fd = new FormData();
     fd.append('accion', 'subir_firmado');
-    fd.append('requisicion_id', idRequisicion);
+    fd.append('requisicion_id', requisicionASubir);
     fd.append('archivo', input.files[0]);
-    boton.disabled = true;
-    msg.style.color = '#475569'; msg.textContent = 'Verificando la firma...';
     try {
-      const r = await llamarFuncionFirmas(fd);
-      msg.style.color = '#15803d'; msg.textContent = '✅ ' + r.mensaje;
-      setTimeout(recargarSeguimiento, 2500);
+      await llamarFuncionFirmas(fd);
+      cerrarModalSubirFirmado();
+      refrescarVistaRequisiciones();
     } catch (e) {
-      msg.style.color = '#b91c1c'; msg.textContent = '⛔ ' + e.message;
+      msg.style.color = '#b91c1c'; msg.textContent = 'No se pudo subir: ' + e.message;
       boton.disabled = false;
     }
   }
 
-  let requisicionARechazar = null;
-  function abrirModalRechazar(id, numero) {
-    requisicionARechazar = id;
-    document.getElementById('modalRechazarNumero').textContent = numero;
-    document.getElementById('motivoRechazo').value = '';
-    document.getElementById('modalRechazarMensaje').textContent = '';
-    document.getElementById('btnConfirmarRechazo').disabled = false;
-    document.getElementById('modalRechazar').classList.remove('hidden');
-    document.getElementById('motivoRechazo').focus();
-  }
-  function cerrarModalRechazar() {
-    requisicionARechazar = null;
-    document.getElementById('modalRechazar').classList.add('hidden');
-  }
-  async function confirmarRechazo() {
-    const motivo = document.getElementById('motivoRechazo').value.trim();
-    const msg = document.getElementById('modalRechazarMensaje');
-    if (!motivo) { msg.textContent = 'Debes escribir el motivo del rechazo.'; return; }
-    const boton = document.getElementById('btnConfirmarRechazo');
-    boton.disabled = true;
-    const fd = new FormData();
-    fd.append('accion', 'rechazar');
-    fd.append('requisicion_id', requisicionARechazar);
-    fd.append('motivo', motivo);
-    try {
-      await llamarFuncionFirmas(fd);
-      cerrarModalRechazar();
-      recargarSeguimiento();
-    } catch (e) {
-      msg.textContent = 'No se pudo rechazar: ' + e.message;
-      boton.disabled = false;
-    }
+  // ---- Vacante cubierta (solo Developer) ----
+  async function marcarVacanteCubierta(id, numero) {
+    if (!confirm(`¿Marcar la requisición ${numero} como "Vacante cubierta"?\n\nCon esto termina el proceso de esta requisición.`)) return;
+    const { error } = await sb.rpc('marcar_vacante_cubierta', { p_id: id });
+    if (error) { alert('No se pudo marcar: ' + error.message); return; }
+    refrescarVistaRequisiciones();
   }
 
   // ================== ORGANIGRAMA (solo Developer) ==================
@@ -10606,13 +10458,12 @@ var supabase = function(e) {
   // ---- Vista: requisiciones del área o solo las mías ----
   let vistaRequisiciones = 'area';
 
-  const BOTONES_VISTA = { area: 'btnVistaArea', mias: 'btnVistaMias', firmas: 'btnVistaFirmas', estadisticas: 'btnVistaEstadisticas' };
+  const BOTONES_VISTA = { area: 'btnVistaArea', mias: 'btnVistaMias', estadisticas: 'btnVistaEstadisticas' };
   function cambiarVistaRequisiciones(vista) {
     vistaRequisiciones = vista;
     Object.entries(BOTONES_VISTA).forEach(([v, id]) => { document.getElementById(id).className = v === vista ? 'acento' : 'secundario'; });
     const tabla = vista === 'area' || vista === 'mias';
     document.getElementById('listaRequisiciones').classList.toggle('hidden', !tabla);
-    document.getElementById('vistaFirmas').classList.toggle('hidden', vista !== 'firmas');
     document.getElementById('vistaEstadisticas').classList.toggle('hidden', vista !== 'estadisticas');
     refrescarVistaRequisiciones();
   }
@@ -10620,8 +10471,7 @@ var supabase = function(e) {
   async function refrescarVistaRequisiciones() {
     await cargarDatosSeguimiento(); // también actualiza los contadores de los botones
     if (vistaRequisiciones === 'area' || vistaRequisiciones === 'mias') { cargarRequisiciones(); return; }
-    if (vistaRequisiciones === 'firmas') dibujarFirmasPendientes();
-    else dibujarEstadisticas();
+    dibujarEstadisticas();
   }
 
   // ---- Cancelar: solo quien la creó, o un Developer (Supabase también lo verifica) ----
@@ -10629,7 +10479,7 @@ var supabase = function(e) {
 
   // Cancelar: quien la creó, un Developer, o un Admin si la requisición es de su área (Supabase también lo verifica)
   function puedeCancelar(r) {
-    if (r.estado === 'cancelada') return false;
+    if (r.estado === 'declinada' || r.estado === 'vacante_cubierta') return false;
     if (r.creado_por === usuarioActual?.id || puedeGestionarRoles) return true;
     const miArea = catalogoAreas.find(a => a.id === usuarioActual?.area_id)?.nombre;
     return esAdmin && !!miArea && r.datos_formulario?.area === miArea;
