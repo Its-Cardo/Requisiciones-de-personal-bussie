@@ -10152,8 +10152,12 @@ var supabase = function(e) {
   const base64Bytes = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i += 8192) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192)); return btoa(s); };
   const enLineas = (b64) => b64.replace(/(.{76})/g, '$1\r\n');
 
+  // Nombre de los archivos: "Requisición <vacante> <área>" (sin el consecutivo)
+  const nombreArchivoCorreo = (c) => `Requisición ${c.cargo} ${c.area}`.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+
   function construirCorreoEml(c, pdfBytes) {
-    const nombrePdf = `Requisicion_${c.numero}_firmada.pdf`;
+    const nombrePdf = nombreArchivoCorreo(c) + '.pdf';
+    const nombreCodificado = `=?UTF-8?B?${base64Texto(nombrePdf)}?=`; // admite tildes y espacios
     const asunto = `Requisición de personal – ${c.cargo} – ${c.area}`;
     const html = `<div style="font-family:Segoe UI, Arial, sans-serif; font-size:14px; color:#1f2937;">
       <p>Buen día,</p>
@@ -10176,8 +10180,8 @@ var supabase = function(e) {
       enLineas(base64Texto(html)),
       '',
       `--${limite}`,
-      `Content-Type: application/pdf; name="${nombrePdf}"`,
-      `Content-Disposition: attachment; filename="${nombrePdf}"`,
+      `Content-Type: application/pdf; name="${nombreCodificado}"`,
+      `Content-Disposition: attachment; filename="${nombreCodificado}"`,
       'Content-Transfer-Encoding: base64',
       '',
       enLineas(base64Bytes(pdfBytes)),
@@ -10189,7 +10193,7 @@ var supabase = function(e) {
   }
 
   function descargarCorreoEml(c, pdfBytes) {
-    const nombre = `Correo_Requisicion_${c.numero}.eml`;
+    const nombre = `Correo ${nombreArchivoCorreo(c)}.eml`;
     const blob = new Blob([construirCorreoEml(c, pdfBytes)], { type: 'message/rfc822' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
