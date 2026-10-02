@@ -22716,7 +22716,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const arrayBuffer = await respuesta.arrayBuffer();
       const zip = new PizZip(arrayBuffer);
       const docWord = new window.docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
-      docWord.render(datos);
+      docWord.render(datosParaPlantilla(datos));
 
       const docxGenerado = docWord.getZip().generate({ type: "arraybuffer" });
 
@@ -22755,6 +22755,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       mensajeDiv.textContent = '';
       alert("Hubo un error: " + error.message);
     }
+  }
+
+  // Elementos de trabajo: en la plantilla oficial cada casilla es un campo de formulario de Word.
+  // Si no está marcada, se deja el mismo espacio que trae Word por defecto (U+2002) para que el recuadro conserve su ancho.
+  function datosParaPlantilla(datos) {
+    const copia = Object.assign({}, datos);
+    'abcdfghijklmnopq'.split('').forEach(l => { if (!String(copia[l] || '').trim()) copia[l] = '\u2002'; });
+    return copia;
   }
 
   // ================== MODO SOLO LECTURA (Ver requisiciones) ==================
@@ -22947,7 +22955,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const arrayBuffer = await respuesta.arrayBuffer();
       const zip = new PizZip(arrayBuffer);
       const docWord = new window.docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
-      docWord.render(datos);
+      docWord.render(datosParaPlantilla(datos));
       const docxGenerado = docWord.getZip().generate({ type: "arraybuffer" });
 
       const contenedorImpresion = document.getElementById('print-view');
