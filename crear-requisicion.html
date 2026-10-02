@@ -15440,6 +15440,13 @@
     /* Vista de impresión: renderiza el .docx REAL (generado con docxtemplater) usando docx-preview */
     #print-view { display: none; }
 
+    /* El visor de Word (docx-preview) activa la división automática de palabras con guion ("Compu-tador").
+       El formato original en Word no divide palabras, así que se desactiva para que se imprima igual. */
+    #print-view .docx, #print-view .docx * {
+      -webkit-hyphens: manual !important;
+      hyphens: manual !important;
+    }
+
     @media print {
       body * { visibility: hidden; }
       #print-view, #print-view * { visibility: visible; }
