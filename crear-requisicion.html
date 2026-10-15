@@ -15489,6 +15489,18 @@
         break-after: auto;
       }
 
+      /* Cada hoja mide un poco menos que el papel (11 in), para que el redondeo del navegador
+         no la haga desbordar y aparezca una página en blanco entre las dos hojas */
+      #print-view .docx-wrapper > section.docx {
+        min-height: 10.9in !important;
+        max-height: 10.95in !important;
+      }
+      /* Al imprimir, las hojas van una debajo de la otra (sin el acomodo flexible de la vista en pantalla),
+         y cada hoja después de la primera empieza en una página nueva */
+      #print-view .docx-wrapper { display: block !important; }
+      #print-view .docx-wrapper > section.docx { break-after: auto !important; }
+      #print-view .docx-wrapper > section.docx + section.docx { break-before: page !important; }
+
       @page { size: 10.5in 11in; margin: 0; }
     }
   </style>
@@ -22732,17 +22744,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       contenedorImpresion.innerHTML = '';
       await docx.renderAsync(docxGenerado, contenedorImpresion, null, { inWrapper: true });
 
-      // El salto de página original del Word está insertado dentro de una celda de tabla,
-      // y docx-preview no lo reconoce automáticamente ahí. Se fuerza manualmente el salto
-      // justo antes de la sección "ÁREA EXCLUSIVA PARA USO DE TALENTO HUMANO".
-      const filasTabla = contenedorImpresion.querySelectorAll('tr');
-      for (const fila of filasTabla) {
-        if (fila.textContent.includes('ÁREA EXCLUSIVA PARA USO DE TALENTO HUMANO')) {
-          fila.style.breakBefore = 'page';
-          fila.style.pageBreakBefore = 'always';
-          break;
-        }
-      }
+      // Segunda página (Área exclusiva de Talento Humano) como hoja propia, con encabezado y márgenes
+      separarPaginaTalentoHumano(contenedorImpresion);
 
       // Pequeña pausa para asegurar que el navegador ya registró el cambio de título
       // (el nombre sugerido del PDF) antes de abrir el diálogo de impresión
@@ -22762,6 +22765,47 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       mensajeDiv.textContent = '';
       alert("Hubo un error: " + error.message);
     }
+  }
+
+  // El salto de página del Word está dentro de una celda de tabla y docx-preview no lo reconoce: dibuja todo
+  // como una sola hoja, con el encabezado solo al principio. Aquí se parte en DOS hojas reales: la segunda
+  // empieza en "ÁREA EXCLUSIVA PARA USO DE TALENTO HUMANO" y lleva el mismo encabezado y márgenes de la primera.
+  function separarPaginaTalentoHumano(contenedor) {
+    const hoja1 = contenedor.querySelector('.docx-wrapper > section.docx');
+    if (!hoja1) return;
+    const fila = [...hoja1.querySelectorAll('tr')].find(f => f.textContent.includes('ÁREA EXCLUSIVA PARA USO DE TALENTO HUMANO'));
+    if (!fila) return;
+    const articulo1 = hoja1.querySelector(':scope > article');
+    const tabla = fila.closest('table');
+    // la tabla que se parte debe estar directamente en el contenido de la hoja
+    let tablaRaiz = tabla;
+    while (tablaRaiz && tablaRaiz.parentElement !== articulo1) tablaRaiz = tablaRaiz.parentElement;
+    if (!articulo1 || !tablaRaiz || tablaRaiz !== tabla) return;
+
+    const hoja2 = hoja1.cloneNode(false);                       // mismos márgenes y tamaño
+    const encabezado = hoja1.querySelector(':scope > header');
+    if (encabezado) hoja2.appendChild(encabezado.cloneNode(true)); // "N° / REQUISICIÓN DE PERSONAL"
+    const articulo2 = articulo1.cloneNode(false);
+    hoja2.appendChild(articulo2);
+
+    // Nueva tabla con las mismas columnas, con la fila de Talento Humano y las siguientes
+    const tabla2 = tabla.cloneNode(false);
+    tabla.querySelectorAll(':scope > colgroup').forEach(c => tabla2.appendChild(c.cloneNode(true)));
+    const cuerpo = fila.parentElement;
+    const cuerpo2 = cuerpo === tabla ? tabla2 : tabla2.appendChild(cuerpo.cloneNode(false));
+    let f = fila;
+    while (f) { const sig = f.nextElementSibling; cuerpo2.appendChild(f); f = sig; }
+    articulo2.appendChild(tabla2);
+
+    // Lo que viene después de la tabla (nota, etc.) también pasa a la segunda hoja
+    let sig = tabla.nextSibling;
+    while (sig) { const s2 = sig.nextSibling; articulo2.appendChild(sig); sig = s2; }
+
+    // El pie de página se queda al final del documento (segunda hoja), como estaba
+    const pie = hoja1.querySelector(':scope > footer');
+    if (pie) hoja2.appendChild(pie);
+
+    hoja1.after(hoja2);
   }
 
   // Elementos de trabajo: en la plantilla oficial cada casilla es un campo de formulario de Word.
@@ -22969,14 +23013,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       contenedorImpresion.innerHTML = '';
       await docx.renderAsync(docxGenerado, contenedorImpresion, null, { inWrapper: true });
 
-      // Mismo salto de página forzado que en la generación normal
-      for (const fila of contenedorImpresion.querySelectorAll('tr')) {
-        if (fila.textContent.includes('ÁREA EXCLUSIVA PARA USO DE TALENTO HUMANO')) {
-          fila.style.breakBefore = 'page';
-          fila.style.pageBreakBefore = 'always';
-          break;
-        }
-      }
+      // Misma separación de páginas que en la generación normal
+      separarPaginaTalentoHumano(contenedorImpresion);
 
       await new Promise(resolve => setTimeout(resolve, 100));
       window.print();
