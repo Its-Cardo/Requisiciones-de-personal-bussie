@@ -8956,6 +8956,15 @@ var supabase = function(e) {
     }
     table.tabla-requisiciones td { padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #334155; }
     table.tabla-requisiciones tr:hover td { background: #F8FAFC; }
+    /* Botones de cada requisición: se acomodan en varias líneas si no caben, sin salirse de la tarjeta */
+    table.tabla-requisiciones td.celda-acciones { width: 1%; }
+    .acciones-fila { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; min-width: 110px; }
+    .acciones-fila button { white-space: nowrap; }
+    #listaRequisiciones { overflow-x: auto; }
+    /* Tabla de requisiciones más compacta para que quepa en la tarjeta */
+    #listaRequisiciones table.tabla-requisiciones th, #listaRequisiciones table.tabla-requisiciones td { padding: 8px 7px; }
+    #listaRequisiciones .pill-estado { display: inline-block; white-space: normal; text-align: center; line-height: 1.25; border-radius: 10px; max-width: 120px; }
+    #listaRequisiciones table.tabla-requisiciones td:first-child { white-space: nowrap; }
     .pill-estado { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
     .pill-generada { background: #DBEAFE; color: #1D4ED8; }
     .pill-pendiente_firmas, .pill-pendiente_dg { background: #FEF3C7; color: #92400E; }
@@ -9848,14 +9857,14 @@ var supabase = function(e) {
         <td>${escaparHtml(r.datos_formulario?.area || '—')}</td>
         <td><span class="pill-estado pill-${r.estado}">${escaparHtml(ETIQUETAS_ESTADO[r.estado] || r.estado)}</span></td>
         <td>${formatearFecha(r.creado_en)}</td>
-        <td style="white-space:nowrap;">
+        <td class="celda-acciones"><div class="acciones-fila">
           <button class="secundario" style="padding:4px 12px; font-size:12px;" onclick="verRequisicion('${escaparHtml(String(r.id))}')">Ver</button>
-          ${r.estado === 'en_proceso_firmas' && (r.creado_por === usuarioActual?.id || puedeGestionarRoles) ? `<button class="acento" style="margin-left:6px; padding:4px 10px; font-size:12px;" onclick="abrirModalSubirFirmado('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">Subir firmado</button>` : ''}
-          ${r.pdf_actual_path ? `<button class="secundario" style="margin-left:6px; padding:4px 10px; font-size:12px;" onclick="descargarPdfFirmas('${escaparHtml(String(r.id))}')" title="Descargar PDF firmado">⬇️ PDF</button>` : ''}
-          ${r.estado === 'enviada_th' && (r.creado_por === usuarioActual?.id || puedeGestionarRoles) ? `<button class="secundario" style="margin-left:6px; padding:4px 10px; font-size:12px;" onclick="correoDeRequisicion('${escaparHtml(String(r.id))}', this)" title="Descargar de nuevo el correo para Talento Humano">✉️ Correo</button>` : ''}
-          ${r.estado === 'enviada_th' && puedeGestionarRoles ? `<button class="secundario" style="margin-left:6px; padding:4px 10px; font-size:12px;" onclick="marcarVacanteCubierta('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">✔ Vacante cubierta</button>` : ''}
-          ${puedeCancelar(r) ? `<button class="peligro" style="margin-left:6px;" onclick="abrirModalCancelar('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">Declinar</button>` : ''}
-        </td>
+          ${r.estado === 'en_proceso_firmas' && (r.creado_por === usuarioActual?.id || puedeGestionarRoles) ? `<button class="acento" style="padding:4px 10px; font-size:12px;" onclick="abrirModalSubirFirmado('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">Subir firmado</button>` : ''}
+          ${r.pdf_actual_path ? `<button class="secundario" style="padding:4px 10px; font-size:12px;" onclick="descargarPdfFirmas('${escaparHtml(String(r.id))}')" title="Descargar PDF firmado">⬇️ PDF</button>` : ''}
+          ${r.estado === 'enviada_th' && (r.creado_por === usuarioActual?.id || puedeGestionarRoles) ? `<button class="secundario" style="padding:4px 10px; font-size:12px;" onclick="correoDeRequisicion('${escaparHtml(String(r.id))}', this)" title="Descargar de nuevo el correo para Talento Humano">✉️ Correo</button>` : ''}
+          ${r.estado === 'enviada_th' && puedeGestionarRoles ? `<button class="secundario" style="padding:4px 10px; font-size:12px;" onclick="marcarVacanteCubierta('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">✔ Vacante cubierta</button>` : ''}
+          ${puedeCancelar(r) ? `<button class="peligro" onclick="abrirModalCancelar('${escaparHtml(String(r.id))}', '#${r.numero_consecutivo}-${r.anio}')">Declinar</button>` : ''}
+        </div></td>
       </tr>
     `).join('');
 
