@@ -1,25 +1,28 @@
 name: Keep-alive Supabase
 
 # Evita que Supabase pause el proyecto por inactividad (plan gratuito: 7 días).
-# Hace una consulta de solo lectura cada 3 días. No escribe ni borra datos.
+# Llama dos veces al día a la función keep_alive() de Supabase. No lee tablas ni escribe datos.
 
 on:
   schedule:
-    - cron: '0 12 */3 * *'   # Cada 3 días a las 12:00 UTC (7:00 a. m. Bogotá)
+    - cron: '0 12 * * *'     # Todos los días a las 12:00 UTC (7:00 a. m. Bogotá)
+    - cron: '0 0 * * *'      # Todos los días a las 00:00 UTC (7:00 p. m. Bogotá)
   workflow_dispatch:          # Permite ejecutarlo manualmente desde la pestaña Actions
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Consulta a Supabase (tabla areas, 1 registro)
+      - name: Consulta a Supabase (función keep_alive)
         env:
           SUPABASE_URL: 'https://xkkxxogkdznbcbswpqjm.supabase.co'
           SUPABASE_ANON_KEY: 'sb_publishable_J138u15pam9LauuNNwkw8A_JiPhrEbh'
         run: |
           STATUS=$(curl -s -o respuesta.txt -w "%{http_code}" \
-            "$SUPABASE_URL/rest/v1/areas?select=*&limit=1" \
-            -H "apikey: $SUPABASE_ANON_KEY")
+            -X POST "$SUPABASE_URL/rest/v1/rpc/keep_alive" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}')
           echo "Código HTTP: $STATUS"
           cat respuesta.txt; echo
           if [ "$STATUS" -ge 400 ]; then
